@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="115" height="115" viewBox="0 0 115 115">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectangle_175996" data-name="Rectangle 175996" width="115" height="115" transform="translate(5500 6088)" fill="#fff"/>
+    </clipPath>
+  </defs>
+  <g id="Mask_Group_2590" data-name="Mask Group 2590" transform="translate(-5500 -6088)" clip-path="url(#clip-path)">
+    <g id="Group_363117" data-name="Group 363117" transform="translate(417.143 908.418)">
+      <g id="Rectangle_175966" data-name="Rectangle 175966" transform="translate(5127.541 5223.551)" fill="#49d8fd" stroke="#000" stroke-width="3">
+        <rect width="26.488" height="26.488" stroke="none"/>
+        <rect x="1.5" y="1.5" width="23.488" height="23.488" fill="none"/>
+      </g>
+      <path id="Path_463035" data-name="Path 463035" d="M5148.136,5215.17h8.509v8.258" transform="translate(3.836 0.697)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463042" data-name="Path 463042" d="M5156.644,5215.17h-8.509v8.258" transform="translate(-27.902 0.697)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463038" data-name="Path 463038" d="M5148.136,5223.428h8.509v-8.258" transform="translate(3.836 34.87)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463040" data-name="Path 463040" d="M5156.644,5223.428h-8.509v-8.258" transform="translate(-27.902 34.87)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463036" data-name="Path 463036" d="M5148.136,5215.17h17.606v17.086" transform="translate(3.836 -8.133)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463041" data-name="Path 463041" d="M5165.742,5215.17h-17.606v17.086" transform="translate(-37 -8.133)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463037" data-name="Path 463037" d="M5148.136,5232.257h17.606V5215.17" transform="translate(3.836 34.87)" fill="none" stroke="#000" stroke-width="3"/>
+      <path id="Path_463039" data-name="Path 463039" d="M5165.742,5232.257h-17.606V5215.17" transform="translate(-37 34.87)" fill="none" stroke="#000" stroke-width="3"/>
+    </g>
+  </g>
+</svg>

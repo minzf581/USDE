@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="115" height="115" viewBox="0 0 115 115">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectangle_175975" data-name="Rectangle 175975" width="115" height="115" transform="translate(5494 5838)" fill="#fff"/>
+    </clipPath>
+  </defs>
+  <g id="Mask_Group_2589" data-name="Mask Group 2589" transform="translate(-5494 -5838)" clip-path="url(#clip-path)">
+    <g id="Group_363116" data-name="Group 363116" transform="translate(512 649)">
+      <g id="Rectangle_175962" data-name="Rectangle 175962" transform="translate(5011 5219)" fill="#fff" stroke="#000" stroke-width="3">
+        <rect width="48" height="65" stroke="none"/>
+        <rect x="1.5" y="1.5" width="45" height="62" fill="none"/>
+      </g>
+      <rect id="Rectangle_175963" data-name="Rectangle 175963" width="44" height="17" transform="translate(5022 5214)" fill="#49d8fd"/>
+      <rect id="Rectangle_175965" data-name="Rectangle 175965" width="44" height="17" transform="translate(5014 5222)" fill="#49d8fd"/>
+      <rect id="Rectangle_175964" data-name="Rectangle 175964" width="44" height="44" transform="translate(5022 5231)" fill="#fff"/>
+      <g id="Rectangle_175961" data-name="Rectangle 175961" transform="translate(5020 5212)" fill="none" stroke="#000" stroke-width="3">
+        <rect width="48" height="65" stroke="none"/>
+        <rect x="1.5" y="1.5" width="45" height="62" fill="none"/>
+      </g>
+      <line id="Line_5839" data-name="Line 5839" x2="30" transform="translate(5030.5 5236.5)" fill="none" stroke="#000" stroke-width="4" stroke-dasharray="4 4"/>
+      <line id="Line_5840" data-name="Line 5840" x2="30" transform="translate(5030.5 5244.5)" fill="none" stroke="#000" stroke-width="4" stroke-dasharray="4 4"/>
+      <line id="Line_5841" data-name="Line 5841" x2="30" transform="translate(5030.5 5253)" fill="none" stroke="#000" stroke-width="4" stroke-dasharray="4 4"/>
+      <line id="Line_5842" data-name="Line 5842" x2="30" transform="translate(5030.5 5261)" fill="none" stroke="#000" stroke-width="4" stroke-dasharray="4 4"/>
+    </g>
+  </g>
+</svg>

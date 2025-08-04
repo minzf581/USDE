@@ -12,6 +12,9 @@ cmds = [
 cmds = [
   "find . -name 'index.html' -type f",
   "ls -la frontend/public/",
+  "cd frontend && ls -la",
+  "cd frontend && ls -la public/",
+  "cd frontend && cat public/index.html",
   "cd frontend && npm install --production=false",
   "cd frontend && npm run build"
 ]
