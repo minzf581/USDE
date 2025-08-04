@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "🚀 Starting USDE Enterprise Platform..."
 
 # Kill existing processes
@@ -12,7 +15,7 @@ sleep 2
 
 # Start backend
 echo "🔧 Starting backend server..."
-cd backend && npm run dev &
+cd "$SCRIPT_DIR/backend" && npm run dev &
 BACKEND_PID=$!
 
 # Wait for backend to start
@@ -20,14 +23,14 @@ sleep 5
 
 # Start frontend
 echo "🎨 Starting frontend application..."
-cd ../frontend && npm start &
+cd "$SCRIPT_DIR/frontend" && npm start &
 FRONTEND_PID=$!
 
 echo "✅ Services started successfully!"
 echo "Backend PID: $BACKEND_PID"
 echo "Frontend PID: $FRONTEND_PID"
 echo "Frontend: http://localhost:3000"
-echo "Backend: http://localhost:5000"
+echo "Backend: http://localhost:5001"
 
 # Wait for user to stop
 echo "Press Ctrl+C to stop all services"

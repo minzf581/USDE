@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./data/app.db"
 }
 
 model Company {
@@ -23,13 +23,12 @@ model Company {
   updatedAt     DateTime @updatedAt
   
   // Relations
-  payments      Payment[]
+  paymentsFrom  Payment[] @relation("PaymentFrom")
+  paymentsTo    Payment[] @relation("PaymentTo")
   stakes        Stake[]
   earnings      Earning[]
   deposits      Deposit[]
   withdrawals   Withdrawal[]
-  
-  @@map("companies")
 }
 
 model Payment {
@@ -45,8 +44,6 @@ model Payment {
   // Relations
   fromCompany Company  @relation("PaymentFrom", fields: [fromId], references: [id])
   toCompany   Company  @relation("PaymentTo", fields: [toId], references: [id])
-  
-  @@map("payments")
 }
 
 model Stake {
@@ -61,8 +58,7 @@ model Stake {
   
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
-  
-  @@map("stakes")
+  earnings    Earning[]
 }
 
 model Earning {
@@ -76,8 +72,6 @@ model Earning {
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
   stake       Stake?   @relation(fields: [stakeId], references: [id])
-  
-  @@map("earnings")
 }
 
 model Deposit {
@@ -90,8 +84,6 @@ model Deposit {
   
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
-  
-  @@map("deposits")
 }
 
 model Withdrawal {
@@ -104,6 +96,4 @@ model Withdrawal {
   
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
-  
-  @@map("withdrawals")
 } 
