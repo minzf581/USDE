@@ -9,7 +9,12 @@ cmds = [
 ]
 
 [phases.build]
-cmds = ["cd frontend && npm run build"]
+cmds = [
+  "ls -la frontend/",
+  "cd frontend && ls -la",
+  "cd frontend && npm install --production=false",
+  "cd frontend && npm run build"
+]
 
 [start]
 cmd = "cd backend && npm start" 
