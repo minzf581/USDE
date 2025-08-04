@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, History, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, History, AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { depositAPI } from '../services/api';
@@ -34,10 +34,8 @@ const Deposits = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [usdeResponse, depositsResponse, withdrawalsResponse, statsResponse] = await Promise.all([
+      const [usdeResponse, statsResponse] = await Promise.all([
         depositAPI.getUSDEBalance(),
-        depositAPI.getHistory(),
-        depositAPI.getWithdrawalHistory(),
         depositAPI.getStats()
       ]);
 

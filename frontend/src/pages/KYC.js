@@ -45,10 +45,6 @@ const KYC = () => {
     ]
   });
 
-  useEffect(() => {
-    fetchKYCStatus();
-  }, [fetchKYCStatus]);
-
   const fetchKYCStatus = async () => {
     try {
       const response = await kycAPI.getKYCStatus();
@@ -64,6 +60,10 @@ const KYC = () => {
       console.error('Error fetching KYC status:', error);
     }
   };
+
+  useEffect(() => {
+    fetchKYCStatus();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
