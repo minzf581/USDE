@@ -20,4 +20,4 @@ cmds = [
 ]
 
 [start]
-cmd = "cd backend && npm start" 
+cmd = "cd backend && ls -la && npm install && ls -la node_modules && npm start" 
