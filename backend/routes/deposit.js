@@ -1,11 +1,11 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { verifyToken } = require('../middleware/auth');
 const StripeService = require('../services/stripeService');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
 
 // Create Stripe checkout session for deposit
 router.post('/create-session', verifyToken, [

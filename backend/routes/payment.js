@@ -1,11 +1,11 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { verifyToken, requireKYCApproved } = require('../middleware/auth');
 const paymentService = require('../services/paymentService');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
 
 // Make payment to supplier
 router.post('/send', verifyToken, requireKYCApproved, [

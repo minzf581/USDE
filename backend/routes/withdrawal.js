@@ -1,11 +1,11 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const { verifyToken, requireKYCApproved } = require('../middleware/auth');
 const withdrawalService = require('../services/withdrawalService');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+
 
 // Create withdrawal request
 router.post('/', verifyToken, requireKYCApproved, [

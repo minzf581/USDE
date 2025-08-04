@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const cron = require('node-cron');
 
-const prisma = new PrismaClient();
+
 
 class PaymentService {
   constructor() {

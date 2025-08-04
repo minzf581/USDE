@@ -1,7 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../lib/prisma');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-const prisma = new PrismaClient();
+
 
 class WithdrawalService {
   // 检查用户是否有足够的可用余额
