@@ -41,7 +41,7 @@ A comprehensive stablecoin enterprise platform built with React, Node.js, and Po
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/minzf581/USDE.git
    cd USDE
    ```
 
@@ -57,14 +57,7 @@ A comprehensive stablecoin enterprise platform built with React, Node.js, and Po
    # Edit backend/.env with your database and API keys
    ```
 
-4. **Set up database**
-   ```bash
-   cd backend
-   npm run db:generate
-   npm run db:push
-   ```
-
-5. **Start the application**
+4. **Start the application**
    ```bash
    # From the root directory
    ./start-services.sh
@@ -82,8 +75,13 @@ A comprehensive stablecoin enterprise platform built with React, Node.js, and Po
 ### Access the Application
 
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5000
-- **API Health Check**: http://localhost:5000/api/health
+- **Backend API**: http://localhost:5001
+- **API Health Check**: http://localhost:5001/api/health
+
+### Default Admin Credentials
+- **Email**: `admin@usde.com`
+- **Password**: `admin123`
+- **Starting Balance**: 10,000 UC
 
 ## Environment Variables
 
@@ -107,7 +105,7 @@ STRIPE_SECRET_KEY="sk_test_your_stripe_secret_key"
 STRIPE_PUBLISHABLE_KEY="pk_test_your_stripe_publishable_key"
 
 # Server
-PORT=5000
+PORT=5001
 NODE_ENV="development"
 ```
 
@@ -184,6 +182,7 @@ cd backend
 npm run dev          # Start development server
 npm run db:studio    # Open Prisma Studio
 npm run db:migrate   # Run database migrations
+npm run db:seed      # Seed database with default admin user
 ```
 
 ### Frontend Development
@@ -210,6 +209,7 @@ USDE/
 │   ├── routes/             # API route handlers
 │   ├── services/           # Business logic services
 │   ├── prisma/             # Database schema and migrations
+│   │   └── seed.js         # Database seeding script
 │   └── server.js           # Express server setup
 ├── frontend/               # React application
 │   ├── src/
