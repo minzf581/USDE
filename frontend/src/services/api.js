@@ -68,6 +68,7 @@ export const kycAPI = {
 export const paymentAPI = {
   sendPayment: (data) => api.post('/payment/send', data),
   getHistory: (params) => api.get('/payment/history', { params }),
+  getLockedBalances: () => api.get('/payment/locked-balances'),
   releasePayment: (paymentId) => api.post(`/payment/release/${paymentId}`),
 };
 
@@ -100,8 +101,35 @@ export const withdrawalAPI = {
   getStats: () => api.get('/withdrawal/stats/summary'),
 };
 
+export const bankAccountAPI = {
+  getBankAccounts: () => api.get('/bank-account'),
+  addBankAccount: (data) => api.post('/bank-account', data),
+  updateBankAccount: (accountId, data) => api.put(`/bank-account/${accountId}`, data),
+  deleteBankAccount: (accountId) => api.delete(`/bank-account/${accountId}`),
+};
+
 export const dashboardAPI = {
   getDashboard: () => api.get('/dashboard'),
   getEarnings: (params) => api.get('/dashboard/earnings', { params }),
   getPerformance: () => api.get('/dashboard/performance'),
+};
+
+export const adminAPI = {
+  // User Management
+  getUsers: (params) => api.get('/admin/users', { params }),
+  getUserDetails: (userId) => api.get(`/admin/users/${userId}`),
+  updateUserStatus: (userId, data) => api.put(`/admin/users/${userId}/status`, data),
+  
+  // KYC Approval
+  approveKYC: (userId, data) => api.put(`/admin/kyc/${userId}/approve`, data),
+  
+  // Withdrawal Management
+  getPendingWithdrawals: (params) => api.get('/admin/withdrawals/pending', { params }),
+  approveWithdrawal: (withdrawalId, data) => api.put(`/admin/withdrawals/${withdrawalId}/approve`, data),
+  
+  // Platform Statistics
+  getStats: () => api.get('/admin/stats'),
+  
+  // Audit Logs
+  getAuditLogs: (params) => api.get('/admin/audit-logs', { params }),
 }; 

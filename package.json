@@ -11,10 +11,18 @@
     "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "start": "cd backend && npm start"
   },
-  "keywords": ["stablecoin", "enterprise", "usde", "blockchain"],
+  "keywords": [
+    "stablecoin",
+    "enterprise",
+    "usde",
+    "blockchain"
+  ],
   "author": "USDE Team",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
   }
-} 
+}

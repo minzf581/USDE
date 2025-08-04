@@ -15,11 +15,13 @@ model Company {
   name          String
   email         String   @unique
   password      String
+  role          String   @default("user") // admin, user, demo
   kycStatus     String   @default("pending") // pending, approved, rejected
   kycDocuments  String?  // JSON string of document URLs
   ucBalance     Float    @default(0)
   usdeBalance   Float    @default(0) // USDE stablecoin balance
   totalEarnings Float    @default(0)
+  isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
@@ -39,13 +41,16 @@ model Company {
   // Relations
   paymentsFrom  Payment[] @relation("PaymentFrom")
   paymentsTo    Payment[] @relation("PaymentTo")
+  lockedBalances LockedBalance[]
   stakes        Stake[]
   earnings      Earning[]
   deposits      Deposit[]
   withdrawals   Withdrawal[]
+  bankAccounts  BankAccount[]
   usdeTransactions USDETransaction[] // USDE transaction history
   ubos          UBO[]     // Ultimate Beneficial Owners
   kycReviews    KYCReview[] // KYC review history
+  auditLogs     AuditLog[] // Admin audit logs
 }
 
 model UBO {
@@ -81,14 +86,27 @@ model Payment {
   fromId      String
   toId        String
   amount      Float
-  stakeDays   Int      // Lock-in days
-  released    Boolean  @default(false)
+  lockDays    Int      // Lock-in days (30, 90, 180)
+  status      String   @default("pending") // pending, released
+  releaseAt   DateTime // Calculated release date
   releasedAt  DateTime?
   timestamp   DateTime @default(now())
   
   // Relations
   fromCompany Company  @relation("PaymentFrom", fields: [fromId], references: [id])
   toCompany   Company  @relation("PaymentTo", fields: [toId], references: [id])
+}
+
+model LockedBalance {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  releaseAt   DateTime
+  sourceId    String   // Payment ID that created this lock
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        Company  @relation(fields: [userId], references: [id])
 }
 
 model Stake {
@@ -136,14 +154,32 @@ model Withdrawal {
   id          String   @id @default(cuid())
   companyId   String
   amount      Float
-  walletAddress String? // Blockchain wallet address
-  transactionHash String? // Blockchain transaction hash
-  stripePayoutId String?
-  status      String   @default("pending") // pending, completed, failed
+  bankAccountId String? // 银行账户ID
+  status      String   @default("pending") // pending, processing, success, failed
+  processedAt DateTime? // 处理完成时间
+  burnTxHash  String? // 代币销毁交易哈希
+  stripePayoutId String? // Stripe payout ID
+  notes       String? // 失败原因或备注
   timestamp   DateTime @default(now())
   
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+}
+
+model BankAccount {
+  id          String   @id @default(cuid())
+  companyId   String
+  bankName    String
+  accountNum  String
+  currency    String   @default("USD")
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+  withdrawals Withdrawal[]
 }
 
 // USDE Transaction History
@@ -160,4 +196,19 @@ model USDETransaction {
   
   // Relations
   company     Company  @relation(fields: [companyId], references: [id])
+}
+
+// Admin Audit Log
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminId     String   // Admin who performed the action
+  action      String   // kyc_approval, withdrawal_approval, user_management, etc.
+  targetId    String?  // ID of the target (company, withdrawal, etc.)
+  details     String?  // JSON string with action details
+  ipAddress   String?  // IP address of the admin
+  userAgent   String?  // User agent of the admin
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  admin       Company  @relation(fields: [adminId], references: [id])
 } 

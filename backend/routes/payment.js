@@ -1,16 +1,17 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
-const { verifyToken } = require('./auth');
+const { verifyToken, requireKYCApproved } = require('../middleware/auth');
+const paymentService = require('../services/paymentService');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
 // Make payment to supplier
-router.post('/send', verifyToken, [
+router.post('/send', verifyToken, requireKYCApproved, [
   body('toEmail').isEmail().normalizeEmail().withMessage('Valid recipient email is required'),
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
-  body('stakeDays').isInt({ min: 1, max: 365 }).withMessage('Stake days must be between 1 and 365')
+  body('lockDays').isInt({ min: 30, max: 180 }).withMessage('Lock days must be 30, 90, or 180')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -18,8 +19,13 @@ router.post('/send', verifyToken, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { toEmail, amount, stakeDays } = req.body;
+    const { toEmail, amount, lockDays } = req.body;
     const fromCompanyId = req.company.companyId;
+
+    // Validate lock days
+    if (![30, 90, 180].includes(lockDays)) {
+      return res.status(400).json({ error: 'Lock days must be 30, 90, or 180' });
+    }
 
     // Check if sender has sufficient balance
     const sender = await prisma.company.findUnique({
@@ -30,8 +36,15 @@ router.post('/send', verifyToken, [
       return res.status(404).json({ error: 'Sender company not found' });
     }
 
-    if (sender.ucBalance < amount) {
-      return res.status(400).json({ error: 'Insufficient USDE balance' });
+    // Check available balance using service
+    const availableBalance = await paymentService.getAvailableBalance(fromCompanyId);
+    
+    if (availableBalance < amount) {
+      return res.status(400).json({ 
+        error: 'Insufficient available USDE balance',
+        availableBalance,
+        requestedAmount: amount
+      });
     }
 
     // Find recipient company
@@ -47,66 +60,21 @@ router.post('/send', verifyToken, [
       return res.status(400).json({ error: 'Cannot send payment to yourself' });
     }
 
-    // Calculate stake end date
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + stakeDays);
-
-    // Create payment and stake records in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Deduct from sender
-      const updatedSender = await tx.company.update({
-        where: { id: fromCompanyId },
-        data: { ucBalance: { decrement: amount } }
-      });
-
-      // Add to recipient
-      const updatedRecipient = await tx.company.update({
-        where: { id: recipient.id },
-        data: { ucBalance: { increment: amount } }
-      });
-
-      // Create payment record
-      const payment = await tx.payment.create({
-        data: {
-          fromId: fromCompanyId,
-          toId: recipient.id,
-          amount,
-          stakeDays,
-          released: false
-        }
-      });
-
-      // Create stake record for recipient
-      const stake = await tx.stake.create({
-        data: {
-          companyId: recipient.id,
-          amount,
-          startDate: new Date(),
-          endDate,
-          unlocked: false,
-          interestRate: 0.04 // 4% annual rate
-        }
-      });
-
-      return { payment, stake, updatedSender, updatedRecipient };
-    });
+    // Create payment using service
+    const result = await paymentService.createPayment(fromCompanyId, recipient.id, amount, lockDays);
 
     res.json({
       message: 'Payment sent successfully',
       payment: {
         id: result.payment.id,
         amount: result.payment.amount,
-        stakeDays: result.payment.stakeDays,
+        lockDays: result.payment.lockDays,
+        releaseAt: result.payment.releaseAt,
         recipient: recipient.name,
         recipientEmail: recipient.email,
         timestamp: result.payment.timestamp
       },
-      stake: {
-        id: result.stake.id,
-        endDate: result.stake.endDate,
-        interestRate: result.stake.interestRate
-      },
-      newBalance: result.updatedSender.ucBalance
+      newBalance: result.updatedSender.usdeBalance
     });
 
   } catch (error) {
@@ -155,8 +123,9 @@ router.get('/history', verifyToken, async (req, res) => {
       payments: payments.map(payment => ({
         id: payment.id,
         amount: payment.amount,
-        stakeDays: payment.stakeDays,
-        released: payment.released,
+        lockDays: payment.lockDays,
+        status: payment.status,
+        releaseAt: payment.releaseAt,
         releasedAt: payment.releasedAt,
         timestamp: payment.timestamp,
         type: payment.fromId === companyId ? 'sent' : 'received',
@@ -175,6 +144,29 @@ router.get('/history', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Payment history error:', error);
     res.status(500).json({ error: 'Failed to fetch payment history' });
+  }
+});
+
+// Get locked balances for current user
+router.get('/locked-balances', verifyToken, async (req, res) => {
+  try {
+    const companyId = req.company.companyId;
+
+    const lockedBalances = await paymentService.getLockedBalances(companyId);
+
+    res.json({
+      lockedBalances: lockedBalances.map(lock => ({
+        id: lock.id,
+        amount: lock.amount,
+        releaseAt: lock.releaseAt,
+        createdAt: lock.createdAt,
+        daysRemaining: Math.ceil((new Date(lock.releaseAt) - new Date()) / (1000 * 60 * 60 * 24))
+      }))
+    });
+
+  } catch (error) {
+    console.error('Locked balances error:', error);
+    res.status(500).json({ error: 'Failed to fetch locked balances' });
   }
 });
 
@@ -199,28 +191,16 @@ router.post('/release/:paymentId', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to release this payment' });
     }
 
-    if (payment.released) {
+    if (payment.status === 'released') {
       return res.status(400).json({ error: 'Payment already released' });
     }
 
-    // Check if stake period has ended
-    const stake = await prisma.stake.findFirst({
-      where: {
-        companyId: payment.toId,
-        amount: payment.amount,
-        unlocked: false
-      }
-    });
-
-    if (!stake) {
-      return res.status(404).json({ error: 'Associated stake not found' });
-    }
-
+    // Check if lock period has ended
     const now = new Date();
-    if (stake.endDate > now) {
+    if (payment.releaseAt > now) {
       return res.status(400).json({ 
-        error: 'Stake period has not ended yet',
-        endDate: stake.endDate
+        error: 'Lock period has not ended yet',
+        releaseAt: payment.releaseAt
       });
     }
 
@@ -229,17 +209,14 @@ router.post('/release/:paymentId', verifyToken, async (req, res) => {
       await tx.payment.update({
         where: { id: paymentId },
         data: {
-          released: true,
+          status: 'released',
           releasedAt: now
         }
       });
 
-      await tx.stake.update({
-        where: { id: stake.id },
-        data: {
-          unlocked: true,
-          unlockedAt: now
-        }
+      // Remove the locked balance
+      await tx.lockedBalance.deleteMany({
+        where: { sourceId: paymentId }
       });
     });
 

@@ -12,7 +12,9 @@ const stakeRoutes = require('./routes/stake');
 const depositRoutes = require('./routes/deposit');
 const withdrawalRoutes = require('./routes/withdrawal');
 const dashboardRoutes = require('./routes/dashboard');
+const adminRoutes = require('./routes/admin');
 const { calculateDailyEarnings } = require('./services/earningService');
+const paymentService = require('./services/paymentService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +64,7 @@ app.use('/api/stake', stakeRoutes);
 app.use('/api/deposit', depositRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

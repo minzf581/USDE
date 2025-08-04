@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { sendVerificationEmail } = require('../services/emailService');
+const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -40,6 +41,7 @@ router.post('/register', [
         name,
         email,
         password: hashedPassword,
+        role: 'user',
         kycStatus: 'pending'
       }
     });
@@ -61,6 +63,7 @@ router.post('/register', [
         id: company.id,
         name: company.name,
         email: company.email,
+        role: company.role,
         kycStatus: company.kycStatus,
         ucBalance: company.ucBalance
       }
@@ -114,6 +117,7 @@ router.post('/login', [
         id: company.id,
         name: company.name,
         email: company.email,
+        role: company.role,
         kycStatus: company.kycStatus,
         ucBalance: company.ucBalance,
         totalEarnings: company.totalEarnings
@@ -126,22 +130,7 @@ router.post('/login', [
   }
 });
 
-// Verify token middleware
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    req.company = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
+// 移除旧的verifyToken，使用middleware/auth.js中的版本
 
 // Get current company profile
 router.get('/profile', verifyToken, async (req, res) => {
@@ -152,9 +141,12 @@ router.get('/profile', verifyToken, async (req, res) => {
         id: true,
         name: true,
         email: true,
+        role: true,
         kycStatus: true,
         ucBalance: true,
+        usdeBalance: true,
         totalEarnings: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true
       }
@@ -172,4 +164,4 @@ router.get('/profile', verifyToken, async (req, res) => {
   }
 });
 
-module.exports = { router, verifyToken }; 
+module.exports = { router }; 

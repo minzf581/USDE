@@ -110,7 +110,7 @@ router.get('/:stakeId', verifyToken, async (req, res) => {
 // Create manual stake (for testing)
 router.post('/', verifyToken, [
   body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
-  body('days').isInt({ min: 1, max: 365 }).withMessage('Days must be between 1 and 365'),
+  body('lockPeriod').isInt({ min: 30, max: 365 }).withMessage('Lock period must be between 30 and 365 days'),
   body('interestRate').optional().isFloat({ min: 0, max: 1 }).withMessage('Interest rate must be between 0 and 1')
 ], async (req, res) => {
   try {
@@ -119,7 +119,7 @@ router.post('/', verifyToken, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { amount, days, interestRate = 0.04 } = req.body;
+    const { amount, lockPeriod, interestRate = 0.04 } = req.body;
     const companyId = req.company.companyId;
 
     // Check if company has sufficient balance
@@ -131,20 +131,20 @@ router.post('/', verifyToken, [
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (company.ucBalance < amount) {
+    if (company.usdeBalance < amount) {
       return res.status(400).json({ error: 'Insufficient USDE balance' });
     }
 
     // Calculate end date
     const endDate = new Date();
-    endDate.setDate(endDate.getDate() + days);
+    endDate.setDate(endDate.getDate() + lockPeriod);
 
     // Create stake in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Deduct from balance
       const updatedCompany = await tx.company.update({
         where: { id: companyId },
-        data: { ucBalance: { decrement: amount } }
+        data: { usdeBalance: { decrement: amount } }
       });
 
       // Create stake
@@ -171,7 +171,7 @@ router.post('/', verifyToken, [
         endDate: result.stake.endDate,
         interestRate: result.stake.interestRate
       },
-      newBalance: result.updatedCompany.ucBalance
+      newBalance: result.updatedCompany.usdeBalance
     });
 
   } catch (error) {
@@ -226,12 +226,10 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
     });
 
     res.json({
-      summary: {
-        totalStaked: totalStaked._sum.amount || 0,
-        activeStakes,
-        totalEarnings: totalEarnings._sum.amount || 0,
-        currentDailyEarnings: Math.round(currentDailyEarnings * 100) / 100
-      }
+      totalStaked: totalStaked._sum.amount || 0,
+      activeStakes,
+      totalEarnings: totalEarnings._sum.amount || 0,
+      currentDailyEarnings: Math.round(currentDailyEarnings * 100) / 100
     });
 
   } catch (error) {

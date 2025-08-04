@@ -12,7 +12,8 @@ import {
   FileText,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 
 const Layout = () => {
@@ -21,7 +22,12 @@ const Layout = () => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigation = [
+  const navigation = user?.role === 'admin' ? [
+    { name: 'Admin Dashboard', href: '/admin', icon: Shield },
+    { name: 'User Management', href: '/admin/users', icon: User },
+    { name: 'Withdrawal Approval', href: '/admin/withdrawals', icon: ArrowUpRight },
+    { name: 'Audit Logs', href: '/admin/audit', icon: FileText },
+  ] : [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Profile', href: '/profile', icon: User },
     { name: 'Payments', href: '/payments', icon: CreditCard },

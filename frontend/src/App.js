@@ -14,6 +14,7 @@ import Stakes from './pages/Stakes';
 import Deposits from './pages/Deposits';
 import Withdrawals from './pages/Withdrawals';
 import KYCPage from './pages/KYC';
+import Admin from './pages/Admin';
 
 // Layout
 import Layout from './components/Layout';
@@ -56,6 +57,7 @@ function App() {
             <Route path="deposits" element={<Deposits />} />
             <Route path="withdrawals" element={<Withdrawals />} />
             <Route path="kyc" element={<KYCPage />} />
+            <Route path="admin" element={<Admin />} />
           </Route>
           
           {/* Catch all */}
