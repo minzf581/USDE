@@ -6,7 +6,6 @@ import {
   User, 
   CreditCard, 
   Lock, 
-  Wallet, 
   ArrowUpRight, 
   ArrowDownLeft,
   FileText,

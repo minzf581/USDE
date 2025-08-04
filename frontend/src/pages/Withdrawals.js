@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, Plus, Clock, CheckCircle, XCircle, DollarSign, Bank, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, Plus, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { api, withdrawalAPI, bankAccountAPI, dashboardAPI } from '../services/api';
+import { withdrawalAPI, bankAccountAPI, dashboardAPI } from '../services/api';
 
 const Withdrawals = () => {
   const [withdrawals, setWithdrawals] = useState([]);

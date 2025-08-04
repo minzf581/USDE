@@ -2,16 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
   Users, 
-  FileCheck, 
   DollarSign, 
   TrendingUp, 
   Activity,
-  CheckCircle,
-  XCircle,
   Clock,
-  Eye,
-  UserCheck,
-  UserX
+  UserCheck
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 

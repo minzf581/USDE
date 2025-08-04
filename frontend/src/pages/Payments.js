@@ -49,7 +49,7 @@ const Payments = () => {
     setSuccess('');
 
     try {
-      const response = await paymentAPI.sendPayment(formData);
+      await paymentAPI.sendPayment(formData);
       setSuccess('Payment sent successfully!');
       setFormData({ toEmail: '', amount: '', lockDays: 30 });
       fetchPayments();

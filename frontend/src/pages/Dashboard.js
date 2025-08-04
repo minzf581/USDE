@@ -15,7 +15,6 @@ import {
 import { LoadingSpinner } from '../components/LoadingSpinner';
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
 

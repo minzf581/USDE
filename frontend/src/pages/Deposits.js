@@ -9,8 +9,6 @@ const Deposits = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [usdeData, setUsdeData] = useState(null);
-  const [deposits, setDeposits] = useState([]);
-  const [withdrawals, setWithdrawals] = useState([]);
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState('deposit');
 
@@ -116,18 +114,7 @@ const Deposits = () => {
     });
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'pending':
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      case 'failed':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <AlertCircle className="w-4 h-4 text-gray-500" />;
-    }
-  };
+
 
   if (loading && !usdeData) {
     return (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Plus, TrendingUp, Calendar, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Lock, Plus, TrendingUp, Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { api, stakeAPI, dashboardAPI } from '../services/api';
+import { stakeAPI, dashboardAPI } from '../services/api';
 
 const Stakes = () => {
   const [stakes, setStakes] = useState([]);

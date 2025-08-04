@@ -6,13 +6,11 @@ import {
   Building2, 
   User, 
   FileText, 
-  Upload, 
   CheckCircle, 
   XCircle, 
   Clock,
   Plus,
-  Trash2,
-  Edit
+  Trash2
 } from 'lucide-react';
 
 const KYC = () => {
@@ -49,7 +47,7 @@ const KYC = () => {
 
   useEffect(() => {
     fetchKYCStatus();
-  }, []);
+  }, [fetchKYCStatus]);
 
   const fetchKYCStatus = async () => {
     try {

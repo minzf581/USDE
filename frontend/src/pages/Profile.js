@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { companyAPI } from '../services/api';
-import { User, Mail, Building, Save, Edit } from 'lucide-react';
+import { Mail, Building, Save, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
