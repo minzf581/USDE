@@ -10,21 +10,17 @@ node check-env.js
 echo "📦 Installing dependencies..."
 npm install
 
-# Update Prisma imports to use shared client
-echo "🔧 Updating Prisma imports..."
-node update-prisma-imports.js
+# Fix module paths
+echo "🔧 Fixing module paths..."
+node fix-paths.js
 
 # Generate Prisma client
 echo "🔧 Generating Prisma client..."
 npx prisma generate
 
-# Test database connection
-echo "🔍 Testing database connection..."
-node test-db.js
-
-# Push database schema
-echo "🗄️ Pushing database schema..."
-npx prisma db push
+# Initialize database (create tables and verify)
+echo "🗄️ Initializing database..."
+node init-db.js
 
 # Seed database with initial data
 echo "🌱 Seeding database..."

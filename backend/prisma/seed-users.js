@@ -1,11 +1,26 @@
-const prisma = require('./lib/prisma');
+const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
-
-
 
 async function seedUsers() {
   try {
     console.log('🌱 Seeding users...');
+
+    // Check if Company table exists
+    try {
+      const tableExists = await prisma.$queryRaw`
+        SELECT COUNT(*) as count 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'Company'
+      `;
+      
+      if (tableExists[0].count === 0) {
+        console.log('⚠️  Company table not found, skipping seed');
+        return;
+      }
+    } catch (error) {
+      console.log('⚠️  Could not check table existence, skipping seed');
+      return;
+    }
 
     // 检查是否已存在种子用户
     const existingAdmin = await prisma.company.findUnique({
@@ -65,6 +80,7 @@ async function seedUsers() {
 
   } catch (error) {
     console.error('❌ Seeding error:', error);
+    // Don't exit on seeding error, just log it
   } finally {
     await prisma.$disconnect();
   }
