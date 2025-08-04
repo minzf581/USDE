@@ -49,6 +49,22 @@ export const companyAPI = {
   updateKYCStatus: (companyId, status) => api.put(`/company/kyc/status/${companyId}`, { status }),
 };
 
+export const kycAPI = {
+  // KYC Application
+  submitKYC: (data) => api.post('/kyc/submit', data),
+  uploadDocuments: (formData) => api.post('/kyc/upload-documents', formData),
+  getKYCStatus: () => api.get('/kyc/status'),
+  
+  // UBO Management
+  addUBO: (data) => api.post('/kyc/ubo', data),
+  updateUBO: (uboId, data) => api.put(`/kyc/ubo/${uboId}`, data),
+  deleteUBO: (uboId) => api.delete(`/kyc/ubo/${uboId}`),
+  
+  // Admin Functions
+  getKYCApplications: (params) => api.get('/kyc/admin/applications', { params }),
+  reviewKYC: (companyId, data) => api.put(`/kyc/admin/review/${companyId}`, data),
+};
+
 export const paymentAPI = {
   sendPayment: (data) => api.post('/payment/send', data),
   getHistory: (params) => api.get('/payment/history', { params }),

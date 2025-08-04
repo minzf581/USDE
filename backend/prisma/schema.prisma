@@ -22,6 +22,19 @@ model Company {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
+  // KYC Company Information
+  companyNameEn     String?  // Company name in English
+  companyRegNumber  String?  // UEN/Registration number
+  countryOfReg      String?  // Country of registration
+  regAddress        String?  // Registered address
+  incorporationDate DateTime? // Date of incorporation
+  companyType       String?  // Type of company (Private Limited, etc.)
+  
+  // KYC Compliance
+  isPEP             Boolean  @default(false) // Politically Exposed Person
+  isSanctioned      Boolean  @default(false) // Sanctioned country
+  complianceAgreed  Boolean  @default(false) // Terms and conditions agreed
+  
   // Relations
   paymentsFrom  Payment[] @relation("PaymentFrom")
   paymentsTo    Payment[] @relation("PaymentTo")
@@ -29,6 +42,36 @@ model Company {
   earnings      Earning[]
   deposits      Deposit[]
   withdrawals   Withdrawal[]
+  ubos          UBO[]     // Ultimate Beneficial Owners
+  kycReviews    KYCReview[] // KYC review history
+}
+
+model UBO {
+  id              String   @id @default(cuid())
+  companyId       String
+  name            String
+  idNumber        String   // ID/Passport number
+  nationality     String
+  address         String
+  ownershipPercentage Float // Percentage of ownership
+  addressProof    String?  // Address proof document
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  company         Company  @relation(fields: [companyId], references: [id])
+}
+
+model KYCReview {
+  id          String   @id @default(cuid())
+  companyId   String
+  reviewerId  String?  // Admin who reviewed
+  status      String   // pending, approved, rejected, request_info
+  notes       String?  // Review notes
+  reviewedAt  DateTime @default(now())
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
 }
 
 model Payment {

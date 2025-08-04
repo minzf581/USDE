@@ -6,6 +6,7 @@ require('dotenv').config();
 
 const { router: authRoutes } = require('./routes/auth');
 const companyRoutes = require('./routes/company');
+const kycRoutes = require('./routes/kyc');
 const paymentRoutes = require('./routes/payment');
 const stakeRoutes = require('./routes/stake');
 const depositRoutes = require('./routes/deposit');
@@ -48,6 +49,7 @@ app.get('/api/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/company', companyRoutes);
+app.use('/api/kyc', kycRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/stake', stakeRoutes);
 app.use('/api/deposit', depositRoutes);
