@@ -42,8 +42,6 @@ const Deposits = () => {
       ]);
 
       setUsdeData(usdeResponse.data);
-      setDeposits(depositsResponse.data.deposits);
-      setWithdrawals(withdrawalsResponse.data.withdrawals);
       setStats(statsResponse.data.summary);
     } catch (error) {
       console.error('Error loading data:', error);
