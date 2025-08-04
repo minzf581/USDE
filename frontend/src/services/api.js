@@ -79,8 +79,16 @@ export const stakeAPI = {
 };
 
 export const depositAPI = {
-  createDeposit: (data) => api.post('/deposit', data),
+  // Stripe Integration
+  createStripeSession: (amount) => api.post('/deposit/create-session', { amount }),
+  
+  // USDE Balance and Transactions
+  getUSDEBalance: (params) => api.get('/deposit/usde-balance', { params }),
+  withdrawUSDE: (data) => api.post('/deposit/withdraw', data),
+  
+  // Deposit History
   getHistory: (params) => api.get('/deposit', { params }),
+  getWithdrawalHistory: (params) => api.get('/deposit/withdrawals', { params }),
   completeDeposit: (depositId) => api.post(`/deposit/${depositId}/complete`),
   getStats: () => api.get('/deposit/stats/summary'),
 };

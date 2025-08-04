@@ -18,6 +18,7 @@ model Company {
   kycStatus     String   @default("pending") // pending, approved, rejected
   kycDocuments  String?  // JSON string of document URLs
   ucBalance     Float    @default(0)
+  usdeBalance   Float    @default(0) // USDE stablecoin balance
   totalEarnings Float    @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -42,6 +43,7 @@ model Company {
   earnings      Earning[]
   deposits      Deposit[]
   withdrawals   Withdrawal[]
+  usdeTransactions USDETransaction[] // USDE transaction history
   ubos          UBO[]     // Ultimate Beneficial Owners
   kycReviews    KYCReview[] // KYC review history
 }
@@ -122,6 +124,7 @@ model Deposit {
   companyId   String
   amount      Float
   stripePaymentId String?
+  stripeSessionId String? // Stripe checkout session ID
   status      String   @default("pending") // pending, completed, failed
   timestamp   DateTime @default(now())
   
@@ -133,8 +136,26 @@ model Withdrawal {
   id          String   @id @default(cuid())
   companyId   String
   amount      Float
+  walletAddress String? // Blockchain wallet address
+  transactionHash String? // Blockchain transaction hash
   stripePayoutId String?
   status      String   @default("pending") // pending, completed, failed
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+}
+
+// USDE Transaction History
+model USDETransaction {
+  id          String   @id @default(cuid())
+  companyId   String
+  type        String   // mint, withdraw, transfer
+  amount      Float
+  balanceBefore Float
+  balanceAfter  Float
+  description String?
+  metadata    String?  // JSON string for additional data
   timestamp   DateTime @default(now())
   
   // Relations

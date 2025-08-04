@@ -33,8 +33,15 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+// Body parsing middleware (for all routes except Stripe webhook)
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/deposit/webhook') {
+    next();
+  } else {
+    express.json({ limit: '10mb' })(req, res, next);
+  }
+});
+
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
