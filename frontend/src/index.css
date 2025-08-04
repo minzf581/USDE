@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Geist Sans', sans-serif;
+  }
+  
+  body {
+    @apply bg-secondary-light text-secondary-dark;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors duration-200 transform hover:scale-105;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-light text-secondary-dark px-6 py-3 rounded-lg font-medium hover:bg-secondary-lighter transition-colors duration-200;
+  }
+  
+  .btn-accent {
+    @apply bg-accent-orange text-white px-6 py-3 rounded-lg font-medium hover:bg-accent-orange/90 transition-colors duration-200 transform hover:scale-105;
+  }
+  
+  .card {
+    @apply bg-white rounded-xl shadow-lg border border-secondary-lighter p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-secondary-lighter rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent;
+  }
+} 

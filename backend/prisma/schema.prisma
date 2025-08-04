@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  password      String
+  kycStatus     String   @default("pending") // pending, approved, rejected
+  kycDocuments  String?  // JSON string of document URLs
+  ucBalance     Float    @default(0)
+  totalEarnings Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  payments      Payment[]
+  stakes        Stake[]
+  earnings      Earning[]
+  deposits      Deposit[]
+  withdrawals   Withdrawal[]
+  
+  @@map("companies")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  fromId      String
+  toId        String
+  amount      Float
+  stakeDays   Int      // Lock-in days
+  released    Boolean  @default(false)
+  releasedAt  DateTime?
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  fromCompany Company  @relation("PaymentFrom", fields: [fromId], references: [id])
+  toCompany   Company  @relation("PaymentTo", fields: [toId], references: [id])
+  
+  @@map("payments")
+}
+
+model Stake {
+  id          String   @id @default(cuid())
+  companyId   String
+  amount      Float
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  unlocked    Boolean  @default(false)
+  unlockedAt  DateTime?
+  interestRate Float   @default(0.04) // 4% annual rate
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+  
+  @@map("stakes")
+}
+
+model Earning {
+  id          String   @id @default(cuid())
+  companyId   String
+  amount      Float
+  date        DateTime @default(now())
+  strategy    String   // e.g., "us_treasury"
+  stakeId     String?
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+  stake       Stake?   @relation(fields: [stakeId], references: [id])
+  
+  @@map("earnings")
+}
+
+model Deposit {
+  id          String   @id @default(cuid())
+  companyId   String
+  amount      Float
+  stripePaymentId String?
+  status      String   @default("pending") // pending, completed, failed
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+  
+  @@map("deposits")
+}
+
+model Withdrawal {
+  id          String   @id @default(cuid())
+  companyId   String
+  amount      Float
+  stripePayoutId String?
+  status      String   @default("pending") // pending, completed, failed
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+  
+  @@map("withdrawals")
+} 
