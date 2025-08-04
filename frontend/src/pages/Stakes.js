@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, Plus, TrendingUp, Calendar, DollarSign, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import api from '../services/api';
+import { api, stakeAPI, dashboardAPI } from '../services/api';
 
 const Stakes = () => {
   const [stakes, setStakes] = useState([]);
@@ -26,7 +26,7 @@ const Stakes = () => {
 
   const fetchStakes = async () => {
     try {
-      const response = await api.get('/stake');
+      const response = await stakeAPI.getStakes();
       setStakes(response.data.stakes || []);
     } catch (error) {
       console.error('Error fetching stakes:', error);
@@ -38,7 +38,7 @@ const Stakes = () => {
 
   const fetchUserBalance = async () => {
     try {
-      const response = await api.get('/dashboard');
+      const response = await dashboardAPI.getDashboard();
       setUserBalance(response.data.usdeBalance || 0);
     } catch (error) {
       console.error('Error fetching balance:', error);
@@ -47,7 +47,7 @@ const Stakes = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/stake/stats/summary');
+      const response = await stakeAPI.getStats();
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -69,7 +69,7 @@ const Stakes = () => {
 
     try {
       setLoading(true);
-      await api.post('/stake', {
+      await stakeAPI.createStake({
         amount: parseFloat(formData.amount),
         lockPeriod: parseInt(formData.lockPeriod)
       });

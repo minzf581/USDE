@@ -17,13 +17,13 @@ const { calculateDailyEarnings } = require('./services/earningService');
 const paymentService = require('./services/paymentService');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.railway.app'] 
+    ? [process.env.FRONTEND_URL || 'https://your-domain.railway.app'] 
     : ['http://localhost:3000'],
   credentials: true
 }));

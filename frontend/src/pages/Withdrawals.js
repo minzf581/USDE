@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, Plus, Clock, CheckCircle, XCircle, DollarSign, Bank, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import api from '../services/api';
+import { api, withdrawalAPI, bankAccountAPI, dashboardAPI } from '../services/api';
 
 const Withdrawals = () => {
   const [withdrawals, setWithdrawals] = useState([]);
@@ -28,7 +28,7 @@ const Withdrawals = () => {
 
   const fetchWithdrawals = async () => {
     try {
-      const response = await api.get('/withdrawal');
+      const response = await withdrawalAPI.getHistory();
       setWithdrawals(response.data.withdrawals || []);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
@@ -40,7 +40,7 @@ const Withdrawals = () => {
 
   const fetchBankAccounts = async () => {
     try {
-      const response = await api.get('/bank-account');
+      const response = await bankAccountAPI.getBankAccounts();
       setBankAccounts(response.data.bankAccounts || []);
     } catch (error) {
       console.error('Error fetching bank accounts:', error);
@@ -49,7 +49,7 @@ const Withdrawals = () => {
 
   const fetchUserBalance = async () => {
     try {
-      const response = await api.get('/dashboard');
+      const response = await dashboardAPI.getDashboard();
       setUserBalance(response.data.usdeBalance || 0);
     } catch (error) {
       console.error('Error fetching balance:', error);
@@ -58,7 +58,7 @@ const Withdrawals = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/withdrawal/stats/summary');
+      const response = await withdrawalAPI.getStats();
       setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -85,7 +85,7 @@ const Withdrawals = () => {
 
     try {
       setLoading(true);
-      await api.post('/withdrawal', {
+      await withdrawalAPI.createWithdrawal({
         amount: parseFloat(formData.amount),
         bankAccountId: formData.bankAccountId
       });

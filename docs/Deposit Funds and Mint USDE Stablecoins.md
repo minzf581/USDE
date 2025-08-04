@@ -84,6 +84,11 @@ Check:
 	4.	支付完成后，Stripe 回调 /api/stripe-webhook
 	5.	后端校验成功 → 为该用户铸造相同金额的 USDE → 存储余额
 
+Stripe 使用的key如下：
+STRIPE_PUBLISHABLE_KEY=pk_test_51RdnXAGfyR7fgfw4LTp09BjX6SSmiQ3bD9veXjiQZ90gMPdTWwp67OFJPnyvMGcidlXjGuNlRSdUYnj95UAXOenN00ckcFGYCZ
+STRIPE_SECRET_KEY=sk_test_51RdnXAGfyR7fgfw4w8ccChJCOiG0KkG4N2vJUZ3i47ClU9INTDTFQfM6sHnPPsQFk1eog4yBxPIoo2gYmoTdx43z00p1JxAnPr
+
+STRIPE_WEBHOOK_SECRET=whsec_tR8h8lY0ZtF09y3yQyKHGz4qQN2X0zWj
 ⸻
 
 🔗 铸造 USDE 的方式
