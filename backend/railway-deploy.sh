@@ -14,10 +14,6 @@ npx prisma generate
 echo "🗄️ Pushing database schema..."
 npx prisma db push
 
-# Test database connection
-echo "🔍 Testing database connection..."
-node test-db.js || echo "⚠️  Database test failed, continuing..."
-
 # Seed database (with error handling)
 echo "🌱 Seeding database..."
 node prisma/seed-users.js || echo "⚠️  Seeding failed, continuing..."
