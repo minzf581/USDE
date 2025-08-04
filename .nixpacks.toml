@@ -10,8 +10,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "ls -la frontend/",
-  "cd frontend && ls -la",
+  "find . -name 'index.html' -type f",
+  "ls -la frontend/public/",
   "cd frontend && npm install --production=false",
   "cd frontend && npm run build"
 ]
