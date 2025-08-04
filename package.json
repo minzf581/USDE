@@ -7,11 +7,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "npm run install-all && cd frontend && npm run build",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "start": "cd backend && npm start",
-    "postinstall": "npm run install-all",
-    "prebuild": "npm run install-all"
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
   },
   "keywords": [
     "stablecoin",
