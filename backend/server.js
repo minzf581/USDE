@@ -24,26 +24,27 @@ console.log(`   PORT: ${PORT}`);
 console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
 
-// Security middleware
-app.use(helmet());
+// CORS middleware - must be before other middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        process.env.FRONTEND_URL || 'https://usde-frontend-usde.up.railway.app',
-        'https://optimistic-fulfillment-production.up.railway.app',
-        'https://usde-frontend.up.railway.app',
-        'https://usde-frontend.vercel.app',
-        'https://usde-frontend.netlify.app',
-        'https://usde.vercel.app',
-        'https://usde.netlify.app',
-        // Allow all Railway domains
-        /^https:\/\/.*\.up\.railway\.app$/,
-        /^https:\/\/.*\.railway\.app$/
-      ] 
-    : ['http://localhost:3000'],
+  origin: true, // Allow all origins in development, will be restricted in production
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept']
+}));
+
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'"],
+      connectSrc: ["'self'", "https://optimistic-fulfillment-production.up.railway.app"]
+    }
+  }
 }));
 
 // Rate limiting
@@ -63,6 +64,9 @@ app.use((req, res, next) => {
 });
 
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Handle CORS preflight requests
+app.options('*', cors());
 
 // Root endpoint
 app.get('/', (req, res) => {
