@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const testCORS = async () => {
-  const baseURL = 'https://optimistic-fulfillment-production.up.railway.app';
+  const baseURL = 'https://optimistic-fulfillment-usde.up.railway.app';
   
   console.log('🧪 Testing CORS configuration...');
   

@@ -26,7 +26,11 @@ console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
 
 // CORS middleware - must be before other middleware
 app.use(cors({
-  origin: ['https://usde-frontend-usde.up.railway.app', 'http://localhost:3000'],
+  origin: [
+    'https://usde-frontend-usde.up.railway.app', 
+    'http://localhost:3000',
+    'https://optimistic-fulfillment-usde.up.railway.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept']
