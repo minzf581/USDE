@@ -28,7 +28,13 @@ console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
 app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://your-domain.railway.app'] 
+    ? [
+        process.env.FRONTEND_URL || 'https://usde-frontend.up.railway.app',
+        'https://usde-frontend.vercel.app',
+        'https://usde-frontend.netlify.app',
+        'https://usde.vercel.app',
+        'https://usde.netlify.app'
+      ] 
     : ['http://localhost:3000'],
   credentials: true
 }));
