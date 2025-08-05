@@ -29,7 +29,8 @@ app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        process.env.FRONTEND_URL || 'https://usde-frontend.up.railway.app',
+        process.env.FRONTEND_URL || 'https://optimistic-fulfillment-production.up.railway.app',
+        'https://usde-frontend.up.railway.app',
         'https://usde-frontend.vercel.app',
         'https://usde-frontend.netlify.app',
         'https://usde.vercel.app',
