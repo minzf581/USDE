@@ -29,15 +29,21 @@ app.use(helmet());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        process.env.FRONTEND_URL || 'https://optimistic-fulfillment-production.up.railway.app',
+        process.env.FRONTEND_URL || 'https://usde-frontend-usde.up.railway.app',
+        'https://optimistic-fulfillment-production.up.railway.app',
         'https://usde-frontend.up.railway.app',
         'https://usde-frontend.vercel.app',
         'https://usde-frontend.netlify.app',
         'https://usde.vercel.app',
-        'https://usde.netlify.app'
+        'https://usde.netlify.app',
+        // Allow all Railway domains
+        /^https:\/\/.*\.up\.railway\.app$/,
+        /^https:\/\/.*\.railway\.app$/
       ] 
     : ['http://localhost:3000'],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Rate limiting
