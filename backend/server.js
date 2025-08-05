@@ -46,7 +46,7 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
       scriptSrc: ["'self'"],
-      connectSrc: ["'self'", "https://optimistic-fulfillment-production.up.railway.app"]
+      connectSrc: ["'self'", "https://optimistic-fulfillment-usde.up.railway.app"]
     }
   }
 }));
