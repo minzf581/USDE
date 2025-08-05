@@ -63,7 +63,7 @@ const KYC = () => {
 
   useEffect(() => {
     fetchKYCStatus();
-  }, []);
+  }, [fetchKYCStatus]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
