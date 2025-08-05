@@ -26,7 +26,7 @@ console.log(`   DATABASE_URL: ${process.env.DATABASE_URL ? 'Set' : 'Not set'}`);
 
 // CORS middleware - must be before other middleware
 app.use(cors({
-  origin: true, // Allow all origins in development, will be restricted in production
+  origin: ['https://usde-frontend-usde.up.railway.app', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept']
@@ -67,6 +67,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Handle CORS preflight requests
 app.options('*', cors());
+
+// Debug CORS endpoint
+app.get('/api/debug-cors', (req, res) => {
+  res.json({
+    message: 'CORS is working!',
+    origin: req.headers.origin,
+    method: req.method,
+    headers: req.headers
+  });
+});
 
 // Root endpoint
 app.get('/', (req, res) => {
