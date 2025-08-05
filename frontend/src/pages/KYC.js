@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { kycAPI } from '../services/api';
 import { toast } from 'react-hot-toast';
@@ -45,7 +45,7 @@ const KYC = () => {
     ]
   });
 
-  const fetchKYCStatus = async () => {
+  const fetchKYCStatus = useCallback(async () => {
     try {
       const response = await kycAPI.getKYCStatus();
       setKycStatus(response.data);
@@ -59,7 +59,7 @@ const KYC = () => {
     } catch (error) {
       console.error('Error fetching KYC status:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchKYCStatus();

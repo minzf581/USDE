@@ -14,6 +14,6 @@ cp env.production .env.production
 echo "🔨 Building React application..."
 npm run build
 
-# Start the application
+# Start the application with proper configuration
 echo "🚀 Starting frontend server..."
-npx serve -s build -l 3000 
+npx serve -s build -l $PORT 
