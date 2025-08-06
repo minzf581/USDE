@@ -59,7 +59,7 @@ const KYC = () => {
     } catch (error) {
       console.error('Error fetching KYC status:', error);
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     fetchKYCStatus();

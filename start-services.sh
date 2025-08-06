@@ -16,13 +16,14 @@ sleep 2
 # Setup database and seed data
 echo "🗄️  Setting up database..."
 cd "$SCRIPT_DIR/backend"
+export DATABASE_URL="file:/Users/minzhenfa/sourceCode/USDE/backend/prisma/data/app.db"
 npm run db:generate
 npm run db:push
 npm run db:seed
 
 # Start backend
 echo "🔧 Starting backend server..."
-cd "$SCRIPT_DIR/backend" && npm run dev &
+cd "$SCRIPT_DIR/backend" && export DATABASE_URL="file:/Users/minzhenfa/sourceCode/USDE/backend/prisma/data/app.db" && npm run dev &
 BACKEND_PID=$!
 
 # Wait for backend to start
