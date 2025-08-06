@@ -8,7 +8,9 @@ const Register = () => {
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    companyName: '',
+    companyType: 'Private Limited'
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -36,7 +38,11 @@ const Register = () => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Company name is required';
+      newErrors.name = 'Contact name is required';
+    }
+
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = 'Company name is required';
     }
 
     if (!formData.email.trim()) {
@@ -69,7 +75,13 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const result = await register(formData.name, formData.email, formData.password);
+      const result = await register(
+        formData.name, 
+        formData.email, 
+        formData.password,
+        formData.companyName,
+        formData.companyType
+      );
       if (result.success) {
         navigate('/dashboard');
       }
@@ -99,7 +111,7 @@ const Register = () => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-secondary-dark mb-2">
-                Company Name
+                Contact Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-dark/50 w-5 h-5" />
@@ -111,10 +123,51 @@ const Register = () => {
                   value={formData.name}
                   onChange={handleChange}
                   className={`input-field pl-10 ${errors.name ? 'border-red-500' : ''}`}
-                  placeholder="Enter company name"
+                  placeholder="Enter contact name"
                 />
               </div>
               {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="companyName" className="block text-sm font-medium text-secondary-dark mb-2">
+                Company Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-dark/50 w-5 h-5" />
+                <input
+                  id="companyName"
+                  name="companyName"
+                  type="text"
+                  required
+                  value={formData.companyName}
+                  onChange={handleChange}
+                  className={`input-field pl-10 ${errors.companyName ? 'border-red-500' : ''}`}
+                  placeholder="Enter company name"
+                />
+              </div>
+              {errors.companyName && <p className="text-red-500 text-sm mt-1">{errors.companyName}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="companyType" className="block text-sm font-medium text-secondary-dark mb-2">
+                Company Type
+              </label>
+              <div className="relative">
+                <select
+                  id="companyType"
+                  name="companyType"
+                  value={formData.companyType}
+                  onChange={handleChange}
+                  className="input-field pl-10"
+                >
+                  <option value="Private Limited">Private Limited</option>
+                  <option value="Public Limited">Public Limited</option>
+                  <option value="Partnership">Partnership</option>
+                  <option value="Sole Proprietorship">Sole Proprietorship</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
 
             <div>

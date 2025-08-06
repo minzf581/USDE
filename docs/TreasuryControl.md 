@@ -1,0 +1,154 @@
+企业级财务管控模块设计（Enterprise Treasury Control Module）
+
+为实现企业级用户的精细化财务管理，应设计一套权限细分、流程可控、资金透明的财务操作系统。
+
+🧩 模块组成：
+
+模块	说明
+账户分级系统	每个企业可创建多个角色：管理员、财务审批员、出纳员、观察员
+权限控制面板	精细化控制各角色是否能：查看余额、发起支付、批准支付、发起提现等
+审批工作流引擎	所有资金操作必须走审批流，如“两人同意才放款”；可配置金额阈值和审批人
+预算与限额管理	每月/季度设定预算上限，超额时需额外审批；控制资金使用计划
+多币种余额与资产表	实时显示企业在平台中的所有代币、锁仓、理财金额与估值
+资金使用日志	所有资金流动记录皆可查询，具备可审计、可导出特性
+KYC/KYB状态监控	显示当前企业用户身份验证状态，是否可以使用提现、支付等功能
+分支公司资金管理	总部可以查看子公司账户余额、设置资金池和转账权限
+定期报表功能	自动生成月度/季度资金报告，发送至指定邮箱或导出为PDF
+
+🔒 角色设计建议：
+
+角色	权限
+企业管理员	用户创建、KYC审批、权限配置、审批流设定
+财务主管	审批资金请求、查看资产报表
+财务操作员	发起支付/提现申请、查看账户
+观察员	只读权限，用于审计、合规人员查看
+
+
+
+🧩 界面结构设计（Web端）
+
+1. Dashboard（仪表盘），原有dashboard页面优化
+	•	作用：展示企业整体资金情况、财务操作概览、待审批事项。根据用户登录身份不同显示不同信息
+	•	模块展示：
+	•	总资产（可用/锁仓/理财中）
+	•	本月支付总额 / 提现总额
+	•	审批待办（支付/提现/KYC）
+	•	近期资金流（图表）
+
+⸻
+
+2. Account Management（账户管理），管理员登录显示
+	•	子账户 / 角色管理
+
+子页面	功能
+用户列表	查看所有账户，KYC状态、活跃状态
+创建新用户	设定角色（管理员 / 财务主管 / 出纳 / 观察员）
+权限设置	分配用户权限（基于RBAC）
+KYC审批	管理员审批新用户身份验证请求
+
+
+⸻
+
+3. Payment Approval Center（支付审批中心）,管理员，财务主管登录时显示该页面。
+	•	所有发起的 Token 支付、提现操作都需审批
+	•	展示审批流状态
+	•	申请人
+	•	审批人
+	•	当前状态：待审批 / 审批通过 / 驳回
+	•	可批量通过、驳回、设置自动审批阈值
+
+⸻
+
+
+
+4. Treasury Settings（财务策略设置），在原有的Profile中增加一个Treasury Settings的tab，点击后进入
+
+子页面	功能
+预算设置	为每月 / 每季度设定支付上限
+审批规则	设置不同金额的审批人数量要求
+自动触发条件	配置金额超过X自动标记风险 / 审批要求升级
+
+
+⸻
+
+6. Reports & Audit Logs（报表与审计日志）
+
+功能	内容
+操作日志	所有资金操作记录（含IP、时间戳、发起人）
+资金报表	按月、季度生成可导出 PDF 报表
+活跃用户日志	登录日志 / 权限变更日志
+
+
+⸻
+
+🔌 二、后端 API 设计（建议 RESTful 风格）
+
+1. Auth & User
+	•	GET /users/me
+	•	POST /users （创建企业内部子用户）
+	•	GET /users/:id
+	•	PATCH /users/:id/role
+	•	GET /users?kycStatus=pending
+	•	POST /users/:id/approve-kyc
+
+⸻
+
+2. Payments
+	•	GET /payments/:id
+	•	GET /payments?status=pending
+	•	POST /payments/:id/approve
+	•	POST /payments/:id/reject
+
+⸻
+
+3. Withdrawals
+	•	GET /withdrawals?status=pending
+	•	POST /withdrawals/:id/approve
+	•	POST /withdrawals/:id/reject
+
+⸻
+
+4. Treasury Settings
+	•	GET /treasury/settings
+	•	POST /treasury/settings（更新预算上限、审批流配置）
+	•	GET /treasury/risk-flags
+
+⸻
+
+5. Reports & Logs
+	•	GET /reports/monthly
+	•	GET /logs/audit
+	•	GET /logs/login
+
+⸻
+
+6. Roles & Permissions
+	•	GET /roles
+	•	POST /roles
+	•	POST /roles/:id/assign
+
+⸻
+
+🛡️ 三、权限控制（RBAC）
+
+权限	管理员	财务主管	出纳	观察员
+登录系统	✅	✅	✅	✅
+发起支付	❌	✅	✅	❌
+审批支付	✅	✅	❌	❌
+查看资金报表	✅	✅	✅	✅
+设置审批策略	✅	❌	❌	❌
+创建企业子账户	✅	❌	❌	❌
+下载操作日志	✅	✅	❌	❌
+
+
+当管理员登录时，不显示发起支付。
+当财务主管登录时，不显示设置审批策略，创建企业子账户
+当出纳登录时，不显示发起支付，审批支付，设置审批策略，创建企业子账户，下载操作日志
+
+✅ 技术实现建议
+	•	使用 RBAC (Role-Based Access Control)
+    •   所有界面都是英文，用户看不到任何中文信息
+	•	前端通过权限码判断 UI 展示/隐藏
+	•	后端 API 层做硬性权限校验（如：POST /payment/initiate 仅财务操作员可调用）
+	•	所有审批流状态存储在数据库中（如 Postgres 的 JSONB 字段），便于后续查询
+

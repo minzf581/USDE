@@ -13,6 +13,8 @@ const depositRoutes = require('./routes/deposit');
 const withdrawalRoutes = require('./routes/withdrawal');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
+const treasuryRoutes = require('./routes/treasury');
+const enterpriseRoutes = require('./routes/enterprise');
 const { calculateDailyEarnings } = require('./services/earningService');
 const paymentService = require('./services/paymentService');
 
@@ -100,7 +102,9 @@ app.get('/', (req, res) => {
       deposit: '/api/deposit',
       withdrawal: '/api/withdrawal',
       dashboard: '/api/dashboard',
-      admin: '/api/admin'
+      admin: '/api/admin',
+      treasury: '/api/treasury',
+      enterprise: '/api/enterprise'
     }
   });
 });
@@ -125,6 +129,8 @@ app.use('/api/deposit', depositRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/treasury', treasuryRoutes);
+app.use('/api/enterprise', enterpriseRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -153,7 +159,9 @@ app.use('*', (req, res) => {
       deposit: '/api/deposit/*',
       withdrawal: '/api/withdrawal/*',
       dashboard: '/api/dashboard/*',
-      admin: '/api/admin/*'
+      admin: '/api/admin/*',
+      treasury: '/api/treasury/*',
+      enterprise: '/api/enterprise/*'
     }
   });
 });

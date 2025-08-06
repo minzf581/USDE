@@ -1,10 +1,12 @@
 const prisma = require('../lib/prisma');
 const bcrypt = require('bcryptjs');
-
-
+const { seedEnterprise } = require('./seed-enterprise');
 
 async function main() {
   console.log('🌱 Starting database seeding...');
+
+  // Seed enterprise data
+  await seedEnterprise();
 
   // Check if admin user already exists
   const existingAdmin = await prisma.company.findUnique({
@@ -24,9 +26,12 @@ async function main() {
       name: 'USDE Admin',
       email: 'admin@usde.com',
       password: hashedPassword,
+      role: 'system_admin',
       kycStatus: 'approved',
       ucBalance: 10000, // Starting balance for admin
-      totalEarnings: 0
+      totalEarnings: 0,
+      isEnterpriseAdmin: false,
+      isEnterpriseUser: false
     }
   });
 

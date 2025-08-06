@@ -12,7 +12,9 @@ const router = express.Router();
 router.post('/register', [
   body('name').trim().isLength({ min: 2 }).withMessage('Company name must be at least 2 characters'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('companyName').optional().trim().isLength({ min: 2 }).withMessage('Company name must be at least 2 characters'),
+  body('companyType').optional().trim().isLength({ min: 2 }).withMessage('Company type must be at least 2 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -20,7 +22,7 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, companyName, companyType } = req.body;
 
     // Check if company already exists
     const existingCompany = await prisma.company.findUnique({
@@ -34,14 +36,27 @@ router.post('/register', [
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create company
+    // Create enterprise admin
     const company = await prisma.company.create({
       data: {
         name,
         email,
         password: hashedPassword,
-        role: 'user',
-        kycStatus: 'pending'
+        role: 'enterprise_admin',
+        kycStatus: 'pending',
+        isEnterpriseAdmin: true,
+        isEnterpriseUser: false,
+        enterpriseRole: 'enterprise_admin',
+        companyName: companyName || name,
+        enterpriseCompanyType: companyType || 'Private Limited'
+      }
+    });
+
+    // Create enterprise entity
+    const enterprise = await prisma.enterprise.create({
+      data: {
+        name: companyName || name,
+        adminId: company.id
       }
     });
 

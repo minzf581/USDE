@@ -15,6 +15,9 @@ import Deposits from './pages/Deposits';
 import Withdrawals from './pages/Withdrawals';
 import KYCPage from './pages/KYC';
 import Admin from './pages/Admin';
+import Treasury from './pages/Treasury';
+import EnterpriseUsers from './pages/EnterpriseUsers';
+import EnterpriseSettings from './pages/EnterpriseSettings';
 
 // Layout
 import Layout from './components/Layout';
@@ -58,6 +61,9 @@ function App() {
             <Route path="withdrawals" element={<Withdrawals />} />
             <Route path="kyc" element={<KYCPage />} />
             <Route path="admin" element={<Admin />} />
+            <Route path="treasury" element={<Treasury />} />
+            <Route path="enterprise/users" element={<EnterpriseUsers />} />
+            <Route path="enterprise/settings" element={<EnterpriseSettings />} />
           </Route>
           
           {/* Catch all */}

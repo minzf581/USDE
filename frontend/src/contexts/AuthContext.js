@@ -53,16 +53,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const register = async (name, email, password) => {
+  const register = async (name, email, password, companyName, companyType) => {
     try {
-      const response = await api.post('/auth/register', { name, email, password });
+      const response = await api.post('/auth/register', { 
+        name, 
+        email, 
+        password, 
+        companyName, 
+        companyType 
+      });
       const { token: newToken, company } = response.data;
       
       localStorage.setItem('token', newToken);
       setToken(newToken);
       setUser(company);
       
-      toast.success('Registration successful! Please complete KYC verification.');
+      toast.success('Enterprise registration successful! Please complete KYC verification.');
       return { success: true };
     } catch (error) {
       const message = error.response?.data?.error || 'Registration failed';

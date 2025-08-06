@@ -12,7 +12,10 @@ import {
   Menu,
   X,
   LogOut,
-  Shield
+  Shield,
+  Building2,
+  Users,
+  Settings
 } from 'lucide-react';
 
 const Layout = () => {
@@ -26,6 +29,7 @@ const Layout = () => {
     { name: 'User Management', href: '/admin/users', icon: User },
     { name: 'Withdrawal Approval', href: '/admin/withdrawals', icon: ArrowUpRight },
     { name: 'Audit Logs', href: '/admin/audit', icon: FileText },
+    { name: 'Treasury Control', href: '/treasury', icon: Building2 },
   ] : [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Profile', href: '/profile', icon: User },
@@ -34,6 +38,14 @@ const Layout = () => {
     { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
     { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
     { name: 'KYC', href: '/kyc', icon: FileText },
+    ...(user?.isEnterpriseAdmin ? [
+      { name: 'Enterprise Users', href: '/enterprise/users', icon: Users },
+      { name: 'Enterprise Settings', href: '/enterprise/settings', icon: Settings },
+      { name: 'Treasury Control', href: '/treasury', icon: Building2 }
+    ] : []),
+    ...(user?.isEnterpriseUser && !user?.isEnterpriseAdmin ? [
+      { name: 'Treasury Control', href: '/treasury', icon: Building2 }
+    ] : []),
   ];
 
   const handleLogout = () => {

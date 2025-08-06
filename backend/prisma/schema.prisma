@@ -10,18 +10,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enterprise models
+model Enterprise {
+  id          String   @id @default(cuid())
+  name        String
+  adminId     String   @unique // Enterprise admin ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  admin       Company  @relation("EnterpriseAdmin", fields: [adminId], references: [id])
+  users       Company[] @relation("EnterpriseUsers")
+}
+
+// Role-based access control models
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // admin, finance_manager, finance_operator, observer
+  description String?
+  permissions Permission[]
+  users       UserRole[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique // view_balance, initiate_payment, approve_payment, view_reports, etc.
+  description String?
+  roles       Role[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  companyId String?  // For enterprise users, link to parent company
+  assignedAt DateTime @default(now())
+  
+  // Relations
+  user      Company  @relation("UserRoles", fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+  company   Company? @relation("CompanyUserRoles", fields: [companyId], references: [id])
+}
+
+// Treasury control models
+model TreasurySettings {
+  id                    String   @id @default(cuid())
+  companyId             String   @unique
+  monthlyBudget         Float    @default(0)
+  quarterlyBudget       Float    @default(0)
+  approvalThreshold     Float    @default(1000) // Amount requiring approval
+  autoApprovalEnabled   Boolean  @default(false)
+  riskFlagThreshold     Float    @default(5000) // Amount triggering risk flag
+  approvalWorkflow      String   @default("single") // single, dual, committee
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Relations
+  company               Company  @relation(fields: [companyId], references: [id])
+}
+
+model ApprovalWorkflow {
+  id          String   @id @default(cuid())
+  companyId   String
+  type        String   // payment, withdrawal, kyc
+  requestId   String   // ID of the payment/withdrawal/kyc request
+  status      String   @default("pending") // pending, approved, rejected
+  currentStep Int      @default(1)
+  totalSteps  Int      @default(1)
+  approvers   String   // JSON array of approver IDs
+  approvals   Approval[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  company     Company  @relation(fields: [companyId], references: [id])
+}
+
+model Approval {
+  id          String   @id @default(cuid())
+  workflowId  String
+  approverId  String
+  status      String   @default("pending") // pending, approved, rejected
+  notes       String?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  workflow    ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  approver    Company          @relation(fields: [approverId], references: [id])
+}
+
 model Company {
   id            String   @id @default(cuid())
   name          String
   email         String   @unique
   password      String
-  role          String   @default("user") // admin, user, demo
+  role          String   @default("enterprise_admin") // system_admin, enterprise_admin, enterprise_user
   kycStatus     String   @default("pending") // pending, approved, rejected
   kycDocuments  String?  // JSON string of document URLs
   ucBalance     Float    @default(0)
   usdeBalance   Float    @default(0) // USDE stablecoin balance
   totalEarnings Float    @default(0)
   isActive      Boolean  @default(true)
+  
+  // Enterprise fields
+  isEnterpriseAdmin Boolean @default(true) // New users are enterprise admins by default
+  isEnterpriseUser  Boolean @default(false)
+  enterpriseId      String? // Enterprise ID, null for enterprise admin
+  enterpriseRole    String? // enterprise_admin, finance_manager, finance_operator, observer
+  
+  // Enterprise information
+  companyName       String? // Company name for enterprise admin
+  enterpriseCompanyType String? // Company type for enterprise admin
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
@@ -51,6 +156,17 @@ model Company {
   ubos          UBO[]     // Ultimate Beneficial Owners
   kycReviews    KYCReview[] // KYC review history
   auditLogs     AuditLog[] // Admin audit logs
+  
+  // Enterprise relations
+  enterpriseAsAdmin Enterprise? @relation("EnterpriseAdmin")
+  enterpriseAsUser  Enterprise? @relation("EnterpriseUsers", fields: [enterpriseId], references: [id])
+  
+  // Treasury control relations
+  userRoles     UserRole[] @relation("UserRoles")
+  companyUserRoles UserRole[] @relation("CompanyUserRoles")
+  treasurySettings TreasurySettings?
+  approvalWorkflows ApprovalWorkflow[]
+  approvals     Approval[]
 }
 
 model UBO {
