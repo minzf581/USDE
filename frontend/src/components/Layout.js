@@ -13,7 +13,6 @@ import {
   X,
   LogOut,
   Shield,
-  Building2,
   Users,
   Settings
 } from 'lucide-react';
@@ -24,29 +23,61 @@ const Layout = () => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const navigation = user?.role === 'admin' ? [
-    { name: 'Admin Dashboard', href: '/admin', icon: Shield },
-    { name: 'User Management', href: '/admin/users', icon: User },
-    { name: 'Withdrawal Approval', href: '/admin/withdrawals', icon: ArrowUpRight },
-    { name: 'Audit Logs', href: '/admin/audit', icon: FileText },
-    { name: 'Treasury Control', href: '/treasury', icon: Building2 },
-  ] : [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Profile', href: '/profile', icon: User },
-    { name: 'Payments', href: '/payments', icon: CreditCard },
-    { name: 'Stakes', href: '/stakes', icon: Lock },
-    { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
-    { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
-    { name: 'KYC', href: '/kyc', icon: FileText },
-    ...(user?.isEnterpriseAdmin ? [
-      { name: 'Enterprise Users', href: '/enterprise/users', icon: Users },
-      { name: 'Enterprise Settings', href: '/enterprise/settings', icon: Settings },
-      { name: 'Treasury Control', href: '/treasury', icon: Building2 }
-    ] : []),
-    ...(user?.isEnterpriseUser && !user?.isEnterpriseAdmin ? [
-      { name: 'Treasury Control', href: '/treasury', icon: Building2 }
-    ] : []),
-  ];
+  // Define navigation based on user role
+  const getNavigation = () => {
+    if (user?.role === 'admin') {
+      return [
+        { name: 'Admin Dashboard', href: '/admin', icon: Shield },
+        { name: 'User Management', href: '/admin/users', icon: User },
+        { name: 'Withdrawal Approval', href: '/admin/withdrawals', icon: ArrowUpRight },
+        { name: 'Audit Logs', href: '/admin/audit', icon: FileText },
+      ];
+    } else if (user?.role === 'enterprise_admin') {
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'User Management', href: '/enterprise/users', icon: Users },
+        { name: 'Payments', href: '/payments', icon: CreditCard },
+        { name: 'Stakes', href: '/stakes', icon: Lock },
+        { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
+        { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+        { name: 'KYC', href: '/kyc', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ];
+    } else if (user?.role === 'enterprise_finance_manager') {
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Payments', href: '/payments', icon: CreditCard },
+        { name: 'Stakes', href: '/stakes', icon: Lock },
+        { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
+        { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+        { name: 'KYC', href: '/kyc', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ];
+    } else if (user?.role === 'enterprise_finance_operator') {
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Payments', href: '/payments', icon: CreditCard },
+        { name: 'Stakes', href: '/stakes', icon: Lock },
+        { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
+        { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+        { name: 'KYC', href: '/kyc', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ];
+    } else {
+      // Default navigation for other roles
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Payments', href: '/payments', icon: CreditCard },
+        { name: 'Stakes', href: '/stakes', icon: Lock },
+        { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
+        { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+        { name: 'KYC', href: '/kyc', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ];
+    }
+  };
+
+  const navigation = getNavigation();
 
   const handleLogout = () => {
     logout();

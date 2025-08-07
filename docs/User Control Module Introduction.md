@@ -2,12 +2,12 @@
 
 ## 概述
 
-User Control模块是USDE企业平台的核心用户管理和权限控制系统，实现了基于角色的访问控制（RBAC），支持管理员和普通用户的不同权限级别。该模块提供了完整的用户管理、KYC审批、提现审批和审计日志功能。
+User Control模块是USDE企业平台的核心用户管理和权限控制系统，实现了基于角色的访问控制（RBAC），支持系统管理员、企业管理员和企业用户的不同权限级别。该模块提供了完整的用户管理、KYC审批、提现审批和审计日志功能。
 
 ## 主要功能
 
 ### ✅ 核心功能
-- **用户角色系统**: 支持admin、user、demo三种角色
+- **用户角色系统**: 支持system_admin、enterprise_admin、enterprise_user三种角色
 - **身份验证与登录**: JWT token认证机制
 - **基于角色的访问控制**: 细粒度的权限管理
 - **管理员后台面板**: 用户管理、KYC审批、提现审批
@@ -57,7 +57,10 @@ frontend/src/
 **主要方法**:
 - `verifyToken()` - JWT token验证
 - `requireRole(roles)` - 角色权限检查
-- `requireAdmin` - 管理员权限检查
+- `requireSystemAdmin` - 系统管理员权限检查
+- `requireEnterpriseAdmin` - 企业管理员权限检查
+- `requireEnterpriseUser` - 企业用户权限检查
+- `requireAdmin` - 管理员权限检查（系统管理员或企业管理员）
 - `requireUser` - 用户权限检查
 - `requireKYCApproved` - KYC状态检查
 - `logAudit()` - 审计日志记录
@@ -71,8 +74,10 @@ frontend/src/
 **功能**: 管理员API路由
 **主要端点**:
 - `GET /api/admin/users` - 获取用户列表
-- `GET /api/admin/users/:userId` - 获取用户详情
+- `GET /api/admin/users/:userId` - 获取用户详情（包含财务信息等）
 - `PUT /api/admin/users/:userId/status` - 更新用户状态
+- `PUT /api/admin/users/:userId` - 修改用户信息（仅系统管理员）
+- `DELETE /api/admin/users/:userId` - 删除用户（仅系统管理员）
 - `PUT /api/admin/kyc/:userId/approve` - KYC审批
 - `GET /api/admin/withdrawals/pending` - 获取待审批提现
 - `PUT /api/admin/withdrawals/:withdrawalId/approve` - 提现审批
@@ -81,6 +86,7 @@ frontend/src/
 
 **功能特性**:
 - 用户管理和状态控制
+- 用户删除和修改功能
 - KYC审批流程
 - 提现审批管理
 - 平台统计和监控
@@ -89,10 +95,12 @@ frontend/src/
 ### 3. `frontend/src/pages/Admin.js`
 **功能**: 管理员仪表板界面
 **主要组件**:
-- 平台统计仪表板
-- 用户管理表格
+- 平台统计仪表板（包含角色统计）
+- 用户管理表格（支持查看、编辑、删除）
 - 提现审批界面
 - 审计日志查看
+- 用户详情模态框
+- 删除确认模态框
 - 实时状态更新
 
 **UI特性**:
@@ -100,11 +108,12 @@ frontend/src/
 - 标签页导航
 - 实时数据更新
 - 操作确认和反馈
+- 角色标识和状态显示
 
 ### 4. `backend/prisma/seed-users.js`
 **功能**: 种子用户初始化
 **默认用户**:
-- Admin: `admin@usde.com` / `admin123`
+- System Admin: `admin@usde.com` / `admin123`
 - Demo: `demo@usde.com` / `demo123`
 
 **初始化特性**:
@@ -123,16 +132,27 @@ model Company {
   name          String
   email         String   @unique
   password      String
-  role          String   @default("user") // admin, user, demo
+  role          String   @default("enterprise_admin") // system_admin, enterprise_admin, enterprise_user
   kycStatus     String   @default("pending") // pending, approved, rejected
   isActive      Boolean  @default(true)
   usdeBalance   Float    @default(0)
   ucBalance     Float    @default(0)
   totalEarnings Float    @default(0)
+  
+  // Enterprise fields
+  isEnterpriseAdmin Boolean @default(true)
+  isEnterpriseUser  Boolean @default(false)
+  enterpriseId      String?
+  enterpriseRole    String? // enterprise_admin, finance_manager, finance_operator, observer
+  
+  // Enterprise information
+  companyName       String?
+  enterpriseCompanyType String?
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
-  // 关联关系
+  // Relations
   auditLogs     AuditLog[]
   // ... 其他关联
 }
@@ -164,13 +184,15 @@ model AuditLog {
 
 ### 🧱 RBAC权限矩阵
 
-| 功能模块 | Admin用户 | 普通用户 | Demo用户 |
-|---------|-----------|----------|----------|
+| 功能模块 | System Admin | Enterprise Admin | Enterprise User |
+|---------|-------------|------------------|-----------------|
 | 登录系统 | ✅ 登录 | ✅ 登录 | ✅ 登录 |
-| 查看系统用户 | ✅ 可查看全部 | ❌ | ❌ |
-| 审批用户KYC | ✅ 可以审核 | ❌ | ❌ |
-| 审批提现请求 | ✅ 可以审核 | ❌ | ❌ |
-| 查看平台统计 | ✅ 可见资产/收入等 | ❌ | ❌ |
+| 查看系统用户 | ✅ 可查看全部 | ✅ 可查看企业用户 | ❌ |
+| 审批用户KYC | ✅ 可以审核 | ✅ 可以审核企业用户 | ❌ |
+| 审批提现请求 | ✅ 可以审核 | ✅ 可以审核企业用户 | ❌ |
+| 查看平台统计 | ✅ 可见资产/收入等 | ✅ 可见企业统计 | ❌ |
+| 删除用户 | ✅ 可以删除 | ❌ | ❌ |
+| 修改用户信息 | ✅ 可以修改 | ❌ | ❌ |
 | 发起KYC申请 | ❌ | ✅ 可发起 | ✅ 可发起 |
 | 使用支付、提现等功能 | ❌ | ✅ KYC后可用 | ✅ KYC后可用 |
 | 查看个人资产 | ❌ | ✅ | ✅ |
@@ -190,7 +212,7 @@ model AuditLog {
 
 #### 获取用户列表
 ```http
-GET /api/admin/users?page=1&limit=20&search=&status=
+GET /api/admin/users?page=1&limit=20&search=&status=&role=
 Authorization: Bearer <admin_token>
 ```
 
@@ -202,10 +224,14 @@ Authorization: Bearer <admin_token>
       "id": "user_id",
       "name": "Company Name",
       "email": "company@example.com",
-      "role": "user",
+      "role": "enterprise_admin",
       "kycStatus": "pending",
       "isActive": true,
       "usdeBalance": 1000.00,
+      "isEnterpriseAdmin": true,
+      "isEnterpriseUser": false,
+      "enterpriseRole": "enterprise_admin",
+      "companyName": "Company Name",
       "createdAt": "2024-01-01T10:00:00Z"
     }
   ],
@@ -215,6 +241,56 @@ Authorization: Bearer <admin_token>
     "total": 50,
     "pages": 3
   }
+}
+```
+
+#### 获取用户详情
+```http
+GET /api/admin/users/:userId
+Authorization: Bearer <admin_token>
+```
+
+**响应**:
+```json
+{
+  "user": {
+    "id": "user_id",
+    "name": "Company Name",
+    "email": "company@example.com",
+    "role": "enterprise_admin",
+    "kycStatus": "approved",
+    "isActive": true,
+    "usdeBalance": 1000.00,
+    "ucBalance": 500.00,
+    "totalEarnings": 2000.00,
+    "deposits": [...],
+    "withdrawals": [...],
+    "stakes": [...],
+    "earnings": [...],
+    "bankAccounts": [...],
+    "treasurySettings": {...},
+    "userRoles": [...]
+  }
+}
+```
+
+#### 删除用户
+```http
+DELETE /api/admin/users/:userId
+Authorization: Bearer <system_admin_token>
+```
+
+#### 修改用户信息
+```http
+PUT /api/admin/users/:userId
+Authorization: Bearer <system_admin_token>
+Content-Type: application/json
+
+{
+  "name": "Updated Company Name",
+  "email": "updated@example.com",
+  "role": "enterprise_user",
+  "isActive": true
 }
 ```
 
@@ -255,7 +331,10 @@ Authorization: Bearer <admin_token>
     "users": {
       "total": 150,
       "approved": 120,
-      "pendingKYC": 30
+      "pendingKYC": 30,
+      "systemAdmins": 2,
+      "enterpriseAdmins": 25,
+      "enterpriseUsers": 123
     },
     "financial": {
       "totalDeposits": 500000.00,
@@ -283,10 +362,13 @@ Authorization: Bearer <user_token>
     "id": "user_id",
     "name": "Company Name",
     "email": "company@example.com",
-    "role": "user",
+    "role": "enterprise_admin",
     "kycStatus": "approved",
     "usdeBalance": 1000.00,
-    "isActive": true
+    "isActive": true,
+    "isEnterpriseAdmin": true,
+    "isEnterpriseUser": false,
+    "enterpriseRole": "enterprise_admin"
   }
 }
 ```
@@ -304,9 +386,15 @@ Authorization: Bearer <user_token>
 
 ### 🔧 导航菜单控制
 
-**管理员导航**:
+**系统管理员导航**:
 - Admin Dashboard
-- User Management
+- User Management（包含删除和修改功能）
+- Withdrawal Approval
+- Audit Logs
+
+**企业管理员导航**:
+- Admin Dashboard
+- User Management（仅查看和KYC审批）
 - Withdrawal Approval
 - Audit Logs
 
@@ -353,7 +441,7 @@ Authorization: Bearer <user_token>
 4. 启动服务: `npm run dev`
 
 ### 默认用户
-- **管理员**: `admin@usde.com` / `admin123`
+- **系统管理员**: `admin@usde.com` / `admin123`
 - **演示用户**: `demo@usde.com` / `demo123`
 
 ## 扩展功能
@@ -377,6 +465,7 @@ Authorization: Bearer <user_token>
 - 用户角色权限验证
 - KYC审批流程
 - 提现审批流程
+- 用户删除和修改功能
 - 审计日志记录
 - 权限边界测试
 
@@ -390,8 +479,14 @@ Authorization: Bearer <user_token>
 - 大量用户查询
 - 并发权限检查
 - 审计日志性能
-- 前端响应速度
+- 用户管理操作性能
 
----
+## 更新日志
 
-*User Control模块为USDE平台提供了安全、可靠的用户管理和权限控制解决方案，通过基于角色的访问控制确保系统安全，同时提供完整的管理功能和审计追踪。* 
+### v2.0.0 - Treasury Control集成
+- ✅ 新增系统管理员、企业管理员、企业用户角色
+- ✅ 支持用户删除和修改功能
+- ✅ 增强用户详情查看功能
+- ✅ 更新权限控制中间件
+- ✅ 优化管理员仪表板界面
+- ✅ 完善审计日志系统 

@@ -20,8 +20,6 @@
 - 企业管理员 (Enterprise Admin) - 管理企业级财务控制
 - 企业财务主管 (Enterprise Finance Manager) - 审批财务操作
 - 企业财务操作员 (Enterprise Finance Operator) - 执行财务操作
-- 企业观察员 (Enterprise Observer) - 只读权限
-- 普通用户 (User) - 基础功能用户
 ```
 
 ## 👥 用户角色重新定义
@@ -61,13 +59,6 @@
   - 查看财务报告
   - 查看基础审计信息
 
-### 5. 企业观察员 (Enterprise Observer)
-- **创建方式**：由企业管理员创建
-- **功能范围**：只读权限
-- **主要功能**：
-  - 查看财务报告
-  - 查看基础审计信息
-
 ## 🎨 界面修改设计
 
 ### 1. 注册流程调整
@@ -93,25 +84,33 @@
 
 #### 左侧菜单栏修改
 ```
-原有菜单：
-- Dashboard
-- Profile  
+企业管理员登录后菜单：
+- Dashboard (包含Treasury Control功能)
+- User Management (包含Profile功能)
 - Payments
 - Stakes
 - Deposits
 - Withdrawals
 - KYC
+- Settings (包含Enterprise Settings功能)
 
-企业管理员登录后新增菜单：
-- Dashboard
-- Profile
+企业财务主管 登录后菜单：
+- Dashboard (有财务审批功能)
 - Payments
 - Stakes
 - Deposits
 - Withdrawals
 - KYC
-- 企业用户管理 (Enterprise User Management) - 新增
-- 财务控制 (Treasury Control) - 新增
+- Settings (不包含Enterprise Settings功能)
+
+企业财务操作员登录后菜单：
+- Dashboard (无财务审批功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (不包含Enterprise Settings功能)
 ```
 
 #### 菜单显示逻辑
@@ -119,87 +118,91 @@
 if (user.role === 'system_admin') {
   // 显示系统管理员菜单
   // 不显示企业相关菜单
-} else if (user.isEnterpriseAdmin) {
+} else if (user.role === 'enterprise_admin') {
   // 显示企业管理员菜单
-  // 包含企业用户管理和财务控制
-} else if (user.isEnterpriseUser) {
-  // 显示企业用户菜单
-  // 根据具体角色显示不同功能
-} else {
-  // 显示普通用户菜单
+  // 包含所有基础功能和企业功能
+} else if (user.role === 'enterprise_finance_manager') {
+    // 显示企业财务经理菜单
+    // 包含基础功能和财务审批功能
+} else if (user.role === 'enterprise_finance_operator') {
+    // 显示财务操作员菜单
+    // 包含基础功能，不包含审批功能
 }
 ```
 
-### 3. 企业用户管理界面
+### 3. Dashboard集成Treasury Control功能
+
+#### Dashboard页面增强
+```
+功能模块：
+1. 待审批事项 (Prominent Display) - 仅企业管理员和财务主管可见
+   - 显示在页面顶部
+   - 黄色背景突出显示
+   - 显示待审批数量
+   - 快速审批按钮
+
+2. 财务概览 (Overview Tab)
+   - 总资产
+   - 月度支付
+   - 月度提现
+
+3. 财务报告 (Reports Tab)
+   - 月度报告
+   - 支付统计
+   - 提现统计
+
+4. 审计日志 (Audit Logs Tab)
+   - 操作日志
+   - 登录日志
+   - 时间戳和IP地址
+```
+
+### 4. User Management界面
 
 #### 页面路径：`/enterprise/users`
 ```
 功能模块：
-1. 用户列表 (User List)
-   - 显示所有企业用户
-   - 用户状态 (活跃/非活跃)
-   - 角色信息
-   - KYC状态
-   - 最后登录时间
+1. Profile Tab
+   - 公司信息编辑
+   - 账户信息显示
+   - KYC状态显示
 
-2. 创建用户 (Create User)
-   - 用户基本信息
-   - 角色选择 (财务主管/财务操作员/观察员)
-   - 权限预览
-
-3. 用户详情 (User Details)
-   - 用户信息编辑
-   - 角色权限管理
-   - 操作历史
-
-4. 批量操作 (Bulk Operations)
-   - 批量激活/停用
-   - 批量角色调整
+2. Enterprise Users Tab - 仅企业管理员可见
+   - 用户列表 (User List)
+   - 创建用户 (Create User)
+   - 用户详情 (User Details)
+   - 批量操作 (Bulk Operations)
 ```
 
-### 4. 财务控制界面
+### 5. Settings界面
 
-#### 页面路径：`/treasury`
+#### 页面路径：`/settings`
 ```
 功能模块：
-1. 仪表盘 (Dashboard)
-   - 企业财务概览
-   - 待审批事项
-   - 财务指标
+1. Profile Tab
+   - 公司信息编辑
+   - 账户信息显示
+   - KYC状态显示
 
-2. 审批中心 (Approval Center)
-   - 待审批列表
-   - 审批历史
-   - 审批设置
-
-3. 预算管理 (Budget Management)
+2. Enterprise Settings Tab - 仅企业管理员可见
    - 预算设置
-   - 预算使用情况
-   - 超预算警告
-
-4. 财务报告 (Financial Reports)
-   - 月度报告
-   - 季度报告
-   - 自定义报告
-
-5. 审计日志 (Audit Logs)
-   - 操作日志
-   - 登录日志
-   - 导出功能
+   - 审批设置
+   - 风险控制设置
+   - 企业信息显示
 ```
 
 ## 🔐 权限系统设计
 
 ### 权限矩阵
 ```
-权限\角色          系统管理员  企业管理员  财务主管  财务操作员  观察员  普通用户
-系统管理            ✅         ❌         ❌       ❌         ❌     ❌
-企业用户管理        ❌         ✅         ❌       ❌         ❌     ❌
-财务控制设置        ❌         ✅         ❌       ❌         ❌     ❌
-财务审批            ❌         ✅         ✅       ❌         ❌     ❌
-财务操作            ❌         ✅         ✅       ✅         ❌     ❌
-财务报告查看        ❌         ✅         ✅       ✅         ✅     ❌
-基础功能            ✅         ✅         ✅       ✅         ✅     ✅
+权限\角色          系统管理员  企业管理员  财务主管  财务操作员
+系统管理            ✅         ❌         ❌       ❌
+企业用户管理        ❌         ✅         ❌       ❌
+财务控制设置        ❌         ✅         ❌       ❌
+财务审批            ❌         ✅         ✅       ❌
+财务操作            ❌         ✅         ✅       ✅
+财务报告查看        ❌         ✅         ✅       ✅
+基础功能            ✅         ✅         ✅       ✅
 ```
 
 ### 数据隔离
@@ -223,7 +226,7 @@ ALTER TABLE Company ADD COLUMN:
 - isEnterpriseAdmin BOOLEAN DEFAULT FALSE
 - isEnterpriseUser BOOLEAN DEFAULT FALSE
 - enterpriseId STRING (企业ID，企业管理员为NULL)
-- enterpriseRole STRING (企业内角色)
+- enterpriseRole STRING (enterprise_admin/finance_manager/finance_operator)
 ```
 
 ### 2. 新增企业实体表
@@ -243,7 +246,7 @@ CREATE TABLE EnterpriseUser (
   id STRING PRIMARY KEY
   enterpriseId STRING
   userId STRING
-  role STRING (enterprise_admin/finance_manager/finance_operator/observer)
+  role STRING (enterprise_admin/finance_manager/finance_operator)
   createdAt DATETIME
 )
 ```
@@ -295,35 +298,88 @@ CREATE TABLE EnterpriseUser (
 
 ## 📋 开发计划
 
-### 阶段1：基础架构
+### 阶段1：基础架构 ✅
 1. 数据库结构调整
 2. 用户角色系统升级
 3. 权限系统重构
 
-### 阶段2：企业用户管理
+### 阶段2：企业用户管理 ✅
 1. 企业用户管理界面
 2. 用户创建和角色分配
 3. 权限管理功能
 
-### 阶段3：财务控制集成
-1. 财务控制界面集成
+### 阶段3：财务控制集成 ✅
+1. Dashboard集成Treasury Control功能
 2. 审批流程实现
 3. 报告和审计功能
 
-### 阶段4：测试和优化
+### 阶段4：测试和优化 ✅
 1. 功能测试
 2. 性能优化
 3. 用户体验优化
 
-## ❓ 确认问题
+## ✅ 当前实现状态
 
-请确认以下设计要点：
+### 已完成的修改：
 
-1. **用户注册**：新用户注册时是否默认成为企业管理员？
-2. **菜单显示**：企业管理员是否应该看到原有的基础功能菜单？
-3. **权限隔离**：企业管理员是否只能管理自己企业的用户和数据？
-4. **角色命名**：企业内角色命名是否合适？
-5. **数据迁移**：现有用户数据如何处理？
-6. **界面风格**：企业功能界面是否保持与原有系统一致的设计风格？
+1. **菜单结构调整**：
+   - 移除了独立的Treasury Control菜单
+   - 移除了Debug菜单
+   - 将Enterprise Users重命名为User Management
+   - 将Profile功能集成到User Management中
+   - 将Enterprise Settings集成到Settings中
+   - 最终菜单结构：Dashboard, User Management, Payments, Stakes, Deposits, Withdrawals, KYC, Settings
 
-请确认这个设计方案是否符合您的需求，我将根据您的反馈进行相应的开发工作。 
+2. **Dashboard增强**：
+   - 在顶部添加了待审批事项的突出显示
+   - 在底部添加了Treasury Control的TAB功能
+   - 包含Overview、Reports、Audit Logs三个TAB
+   - 实现了快速审批功能
+
+3. **User Management页面**：
+   - 包含Profile和Enterprise Users两个TAB
+   - Profile TAB包含公司信息编辑和账户信息显示
+   - Enterprise Users TAB包含用户管理功能
+
+4. **Settings页面**：
+   - 包含Profile和Enterprise Settings两个TAB
+   - Profile TAB包含公司信息编辑
+   - Enterprise Settings TAB包含企业财务控制设置
+
+5. **路由更新**：
+   - 添加了/settings路由
+   - 移除了/profile、/treasury、/enterprise/settings、/debug路由
+   - 保留了/enterprise/users路由
+
+### 技术实现细节：
+
+1. **组件重构**：
+   - 修复了Treasury.js中的loadInitialData初始化问题
+   - 更新了Layout.js中的导航菜单逻辑
+   - 创建了新的Settings.js组件
+   - 更新了EnterpriseUsers.js组件以包含Profile功能
+   - 增强了Dashboard.js组件以包含Treasury Control功能
+
+2. **API集成**：
+   - 集成了Treasury Control的API调用
+   - 实现了审批流程的API调用
+   - 实现了报告和日志的API调用
+
+3. **用户体验优化**：
+   - 待审批事项使用黄色背景突出显示
+   - 添加了快速审批按钮
+   - 实现了TAB切换功能
+   - 保持了与原有系统一致的设计风格
+
+## ❓确认问题
+
+确认以下设计要点：
+
+1. **用户注册**：新用户注册时默认成为企业管理员 ✅
+2. **菜单显示**：企业管理员看到简化的菜单结构，Treasury Control功能集成到Dashboard中 ✅
+3. **权限隔离**：企业管理员只能管理自己企业的用户和数据 ✅
+4. **角色命名**：企业内角色命名合适 ✅
+5. **数据迁移**：现有用户数据升级为企业管理员 ✅
+6. **界面风格**：企业功能界面保持与原有系统一致的设计风格 ✅
+7. **功能集成**：Treasury Control功能已集成到Dashboard中，不再作为独立菜单 ✅
+8. **角色简化**：删除了普通用户和企业观察员角色，简化了系统复杂度 ✅

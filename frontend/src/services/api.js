@@ -119,6 +119,8 @@ export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   getUserDetails: (userId) => api.get(`/admin/users/${userId}`),
   updateUserStatus: (userId, data) => api.put(`/admin/users/${userId}/status`, data),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
   
   // KYC Approval
   approveKYC: (userId, data) => api.put(`/admin/kyc/${userId}/approve`, data),

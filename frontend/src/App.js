@@ -8,16 +8,15 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile';
 import Payments from './pages/Payments';
 import Stakes from './pages/Stakes';
 import Deposits from './pages/Deposits';
 import Withdrawals from './pages/Withdrawals';
 import KYCPage from './pages/KYC';
 import Admin from './pages/Admin';
-import Treasury from './pages/Treasury';
 import EnterpriseUsers from './pages/EnterpriseUsers';
-import EnterpriseSettings from './pages/EnterpriseSettings';
+import Settings from './pages/Settings';
+import TestMenu from './pages/TestMenu';
 
 // Layout
 import Layout from './components/Layout';
@@ -54,16 +53,15 @@ function App() {
           }>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="profile" element={<Profile />} />
             <Route path="payments" element={<Payments />} />
             <Route path="stakes" element={<Stakes />} />
             <Route path="deposits" element={<Deposits />} />
             <Route path="withdrawals" element={<Withdrawals />} />
             <Route path="kyc" element={<KYCPage />} />
             <Route path="admin" element={<Admin />} />
-            <Route path="treasury" element={<Treasury />} />
             <Route path="enterprise/users" element={<EnterpriseUsers />} />
-            <Route path="enterprise/settings" element={<EnterpriseSettings />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="test-menu" element={<TestMenu />} />
           </Route>
           
           {/* Catch all */}

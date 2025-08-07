@@ -79,7 +79,12 @@ router.post('/register', [
         email: company.email,
         role: company.role,
         kycStatus: company.kycStatus,
-        ucBalance: company.ucBalance
+        ucBalance: company.ucBalance,
+        isEnterpriseAdmin: company.isEnterpriseAdmin,
+        isEnterpriseUser: company.isEnterpriseUser,
+        enterpriseRole: company.enterpriseRole,
+        companyName: company.companyName,
+        enterpriseCompanyType: company.enterpriseCompanyType
       }
     });
 
@@ -134,7 +139,12 @@ router.post('/login', [
         role: company.role,
         kycStatus: company.kycStatus,
         ucBalance: company.ucBalance,
-        totalEarnings: company.totalEarnings
+        totalEarnings: company.totalEarnings,
+        isEnterpriseAdmin: company.isEnterpriseAdmin,
+        isEnterpriseUser: company.isEnterpriseUser,
+        enterpriseRole: company.enterpriseRole,
+        companyName: company.companyName,
+        enterpriseCompanyType: company.enterpriseCompanyType
       }
     });
 
@@ -161,6 +171,11 @@ router.get('/profile', verifyToken, async (req, res) => {
         usdeBalance: true,
         totalEarnings: true,
         isActive: true,
+        isEnterpriseAdmin: true,
+        isEnterpriseUser: true,
+        enterpriseRole: true,
+        companyName: true,
+        enterpriseCompanyType: true,
         createdAt: true,
         updatedAt: true
       }

@@ -6,7 +6,12 @@ import {
   TrendingUp, 
   Activity,
   Clock,
-  UserCheck
+  UserCheck,
+  Trash2,
+  Edit,
+  Eye,
+  Building,
+  User
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 
@@ -18,6 +23,10 @@ const Admin = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -103,6 +112,43 @@ const Admin = () => {
     }
   };
 
+  const handleViewUserDetails = async (userId) => {
+    try {
+      const response = await adminAPI.getUserDetails(userId);
+      setSelectedUser(response.data.user);
+      setShowUserModal(true);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      setError('Failed to load user details');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      await adminAPI.deleteUser(userToDelete.id);
+      setShowDeleteModal(false);
+      setUserToDelete(null);
+      fetchUsers(); // 刷新用户列表
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError('Failed to delete user');
+    }
+  };
+
+  const handleUpdateUser = async (userId, updateData) => {
+    try {
+      await adminAPI.updateUser(userId, updateData);
+      setShowUserModal(false);
+      setSelectedUser(null);
+      fetchUsers(); // 刷新用户列表
+    } catch (error) {
+      console.error('Error updating user:', error);
+      setError('Failed to update user');
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -120,6 +166,15 @@ const Admin = () => {
       rejected: <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">Rejected</span>
     };
     return badges[status] || <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{status}</span>;
+  };
+
+  const getRoleBadge = (role) => {
+    const badges = {
+      system_admin: <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs">System Admin</span>,
+      enterprise_admin: <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">Enterprise Admin</span>,
+      enterprise_user: <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">Enterprise User</span>
+    };
+    return badges[role] || <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs">{role}</span>;
   };
 
   const tabs = [
@@ -222,6 +277,39 @@ const Admin = () => {
                 </div>
               </div>
 
+              {/* Role Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="flex items-center">
+                    <Shield className="w-8 h-8 text-red-500 mr-3" />
+                    <div>
+                      <p className="text-sm text-gray-600">System Admins</p>
+                      <p className="text-2xl font-bold">{stats.stats.users.systemAdmins}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="flex items-center">
+                    <Building className="w-8 h-8 text-blue-500 mr-3" />
+                    <div>
+                      <p className="text-sm text-gray-600">Enterprise Admins</p>
+                      <p className="text-2xl font-bold">{stats.stats.users.enterpriseAdmins}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                  <div className="flex items-center">
+                    <User className="w-8 h-8 text-green-500 mr-3" />
+                    <div>
+                      <p className="text-sm text-gray-600">Enterprise Users</p>
+                      <p className="text-2xl font-bold">{stats.stats.users.enterpriseUsers}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Recent Activity */}
               <div className="bg-white rounded-lg shadow-md">
                 <div className="p-6 border-b border-gray-200">
@@ -284,16 +372,13 @@ const Admin = () => {
                           <div>
                             <p className="font-medium">{user.name}</p>
                             <p className="text-sm text-gray-600">{user.email}</p>
+                            {user.companyName && (
+                              <p className="text-xs text-gray-500">{user.companyName}</p>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                            user.role === 'demo' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {user.role}
-                          </span>
+                          {getRoleBadge(user.role)}
                         </td>
                         <td className="py-3 px-4">
                           {getStatusBadge(user.kycStatus)}
@@ -303,22 +388,55 @@ const Admin = () => {
                           <p className="text-sm text-gray-600">USDE</p>
                         </td>
                         <td className="py-3 px-4">
-                          {user.kycStatus === 'pending' && (
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => handleKYCApproval(user.id, 'approved')}
-                                className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleKYCApproval(user.id, 'rejected')}
-                                className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          )}
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleViewUserDetails(user.id)}
+                              className="p-1 text-blue-600 hover:text-blue-800"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {user.role !== 'system_admin' && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setSelectedUser(user);
+                                    setShowUserModal(true);
+                                  }}
+                                  className="p-1 text-green-600 hover:text-green-800"
+                                  title="Edit User"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setUserToDelete(user);
+                                    setShowDeleteModal(true);
+                                  }}
+                                  className="p-1 text-red-600 hover:text-red-800"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            {user.kycStatus === 'pending' && (
+                              <div className="flex space-x-1">
+                                <button
+                                  onClick={() => handleKYCApproval(user.id, 'approved')}
+                                  className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleKYCApproval(user.id, 'rejected')}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -353,6 +471,7 @@ const Admin = () => {
                         <p className="text-sm text-gray-600">{withdrawal.company.email}</p>
                         <p className="text-lg font-bold">${withdrawal.amount.toLocaleString()}</p>
                         <p className="text-xs text-gray-500">{formatDate(withdrawal.timestamp)}</p>
+                        {getRoleBadge(withdrawal.company.role)}
                       </div>
                       <div className="flex space-x-2">
                         <button
@@ -396,7 +515,7 @@ const Admin = () => {
                       <div>
                         <p className="font-medium">{log.action}</p>
                         <p className="text-sm text-gray-600">
-                          by {log.admin.email} • {formatDate(log.timestamp)}
+                          by {log.admin.email} ({log.admin.role}) • {formatDate(log.timestamp)}
                         </p>
                         {log.targetId && (
                           <p className="text-xs text-gray-500">Target: {log.targetId}</p>
@@ -410,6 +529,108 @@ const Admin = () => {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {showUserModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">User Details</h3>
+              <button
+                onClick={() => {
+                  setShowUserModal(false);
+                  setSelectedUser(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Information */}
+              <div>
+                <h4 className="font-medium mb-3">Basic Information</h4>
+                <div className="space-y-2">
+                  <p><span className="font-medium">Name:</span> {selectedUser.name}</p>
+                  <p><span className="font-medium">Email:</span> {selectedUser.email}</p>
+                  <p><span className="font-medium">Role:</span> {selectedUser.role}</p>
+                  <p><span className="font-medium">KYC Status:</span> {selectedUser.kycStatus}</p>
+                  <p><span className="font-medium">Active:</span> {selectedUser.isActive ? 'Yes' : 'No'}</p>
+                  <p><span className="font-medium">Created:</span> {formatDate(selectedUser.createdAt)}</p>
+                </div>
+              </div>
+
+              {/* Financial Information */}
+              <div>
+                <h4 className="font-medium mb-3">Financial Information</h4>
+                <div className="space-y-2">
+                  <p><span className="font-medium">USDE Balance:</span> ${selectedUser.usdeBalance.toLocaleString()}</p>
+                  <p><span className="font-medium">UC Balance:</span> ${selectedUser.ucBalance.toLocaleString()}</p>
+                  <p><span className="font-medium">Total Earnings:</span> ${selectedUser.totalEarnings.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="md:col-span-2">
+                <h4 className="font-medium mb-3">Recent Activity</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h5 className="font-medium text-sm mb-2">Recent Deposits</h5>
+                    <div className="space-y-1">
+                      {selectedUser.deposits?.map((deposit) => (
+                        <div key={deposit.id} className="text-sm">
+                          ${deposit.amount.toLocaleString()} - {formatDate(deposit.timestamp)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="font-medium text-sm mb-2">Recent Withdrawals</h5>
+                    <div className="space-y-1">
+                      {selectedUser.withdrawals?.map((withdrawal) => (
+                        <div key={withdrawal.id} className="text-sm">
+                          ${withdrawal.amount.toLocaleString()} - {formatDate(withdrawal.timestamp)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Confirm Delete</h3>
+            <p className="mb-4">
+              Are you sure you want to delete user <strong>{userToDelete.name}</strong> ({userToDelete.email})?
+              This action cannot be undone.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDeleteUser}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setUserToDelete(null);
+                }}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

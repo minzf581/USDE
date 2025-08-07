@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 
-
-
 // 验证JWT token
 const verifyToken = async (req, res, next) => {
   try {
@@ -27,7 +25,10 @@ const verifyToken = async (req, res, next) => {
       companyId: user.id,
       email: user.email,
       role: user.role,
-      kycStatus: user.kycStatus
+      kycStatus: user.kycStatus,
+      isEnterpriseAdmin: user.isEnterpriseAdmin,
+      isEnterpriseUser: user.isEnterpriseUser,
+      enterpriseRole: user.enterpriseRole
     };
 
     next();
@@ -59,8 +60,47 @@ const requireRole = (roles) => {
   };
 };
 
-// 要求管理员权限
-const requireAdmin = requireRole('admin');
+// 要求系统管理员权限
+const requireSystemAdmin = requireRole('system_admin');
+
+// 要求企业管理员权限
+const requireEnterpriseAdmin = (req, res, next) => {
+  if (!req.company) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Enterprise admin access required' });
+};
+
+// 要求企业用户权限
+const requireEnterpriseUser = (req, res, next) => {
+  if (!req.company) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin || req.company.isEnterpriseUser) {
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Enterprise user access required' });
+};
+
+// 要求管理员权限（系统管理员或企业管理员）
+const requireAdmin = (req, res, next) => {
+  if (!req.company) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
+    return next();
+  }
+
+  return res.status(403).json({ error: 'Admin access required' });
+};
 
 // 要求用户权限（非管理员）
 const requireUser = (req, res, next) => {
@@ -68,7 +108,7 @@ const requireUser = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.company.role === 'admin') {
+  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
     return res.status(403).json({ error: 'Admin cannot access user features' });
   }
 
@@ -81,7 +121,7 @@ const requireKYCApproved = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.company.role === 'admin') {
+  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
     return next(); // Admin bypass KYC requirement
   }
 
@@ -95,7 +135,7 @@ const requireKYCApproved = (req, res, next) => {
   next();
 };
 
-// 记录审计日志
+// 审计日志记录
 const logAudit = async (adminId, action, targetId = null, details = null, req = null) => {
   try {
     await prisma.auditLog.create({
@@ -104,8 +144,8 @@ const logAudit = async (adminId, action, targetId = null, details = null, req = 
         action,
         targetId,
         details: details ? JSON.stringify(details) : null,
-        ipAddress: req?.ip,
-        userAgent: req?.headers['user-agent']
+        ipAddress: req?.ip || req?.connection?.remoteAddress,
+        userAgent: req?.headers?.['user-agent']
       }
     });
   } catch (error) {
@@ -116,6 +156,9 @@ const logAudit = async (adminId, action, targetId = null, details = null, req = 
 module.exports = {
   verifyToken,
   requireRole,
+  requireSystemAdmin,
+  requireEnterpriseAdmin,
+  requireEnterpriseUser,
   requireAdmin,
   requireUser,
   requireKYCApproved,

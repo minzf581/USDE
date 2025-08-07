@@ -1,26 +1,29 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const prisma = require('../lib/prisma');
-const { verifyToken, requireAdmin, logAudit } = require('../middleware/auth');
+const { verifyToken, requireAdmin, requireSystemAdmin, logAudit } = require('../middleware/auth');
 
 const router = express.Router();
-
 
 // 获取所有用户列表
 router.get('/users', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', status = '' } = req.query;
+    const { page = 1, limit = 20, search = '', status = '', role = '' } = req.query;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
+        { email: { contains: search, mode: 'insensitive' } },
+        { companyName: { contains: search, mode: 'insensitive' } }
       ];
     }
     if (status) {
       where.kycStatus = status;
+    }
+    if (role) {
+      where.role = role;
     }
 
     const [users, total] = await Promise.all([
@@ -36,6 +39,11 @@ router.get('/users', verifyToken, requireAdmin, async (req, res) => {
           usdeBalance: true,
           ucBalance: true,
           totalEarnings: true,
+          isEnterpriseAdmin: true,
+          isEnterpriseUser: true,
+          enterpriseRole: true,
+          companyName: true,
+          enterpriseCompanyType: true,
           createdAt: true,
           updatedAt: true
         },
@@ -61,7 +69,7 @@ router.get('/users', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-// 获取用户详情
+// 获取用户详情（包含财务信息等）
 router.get('/users/:userId', verifyToken, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
@@ -94,6 +102,21 @@ router.get('/users/:userId', verifyToken, requireAdmin, async (req, res) => {
           },
           orderBy: { timestamp: 'desc' },
           take: 10
+        },
+        stakes: {
+          orderBy: { startDate: 'desc' },
+          take: 10
+        },
+        earnings: {
+          orderBy: { date: 'desc' },
+          take: 10
+        },
+        bankAccounts: true,
+        treasurySettings: true,
+        userRoles: {
+          include: {
+            role: true
+          }
         }
       }
     });
@@ -154,6 +177,141 @@ router.put('/users/:userId/status', verifyToken, requireAdmin, [
   } catch (error) {
     console.error('Update user status error:', error);
     res.status(500).json({ error: 'Failed to update user status' });
+  }
+});
+
+// 删除用户（仅系统管理员）
+router.delete('/users/:userId', verifyToken, requireSystemAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = req.company.companyId;
+
+    const user = await prisma.company.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 检查是否为系统管理员
+    if (user.role === 'system_admin') {
+      return res.status(403).json({ error: 'Cannot delete system admin' });
+    }
+
+    // 删除用户相关数据
+    await prisma.$transaction([
+      prisma.auditLog.deleteMany({ where: { adminId: userId } }),
+      prisma.kYCReview.deleteMany({ where: { companyId: userId } }),
+      prisma.ubo.deleteMany({ where: { companyId: userId } }),
+      prisma.withdrawal.deleteMany({ where: { companyId: userId } }),
+      prisma.deposit.deleteMany({ where: { companyId: userId } }),
+      prisma.payment.deleteMany({ 
+        where: { 
+          OR: [
+            { fromId: userId },
+            { toId: userId }
+          ]
+        }
+      }),
+      prisma.stake.deleteMany({ where: { companyId: userId } }),
+      prisma.earning.deleteMany({ where: { companyId: userId } }),
+      prisma.bankAccount.deleteMany({ where: { companyId: userId } }),
+      prisma.usdeTransaction.deleteMany({ where: { companyId: userId } }),
+      prisma.lockedBalance.deleteMany({ where: { userId } }),
+      prisma.userRole.deleteMany({ where: { userId } }),
+      prisma.company.delete({ where: { id: userId } })
+    ]);
+
+    // 记录审计日志
+    await logAudit(adminId, 'user_deleted', userId, {
+      userEmail: user.email,
+      userRole: user.role
+    }, req);
+
+    res.json({
+      message: 'User deleted successfully',
+      deletedUser: {
+        id: user.id,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// 修改用户信息（仅系统管理员）
+router.put('/users/:userId', verifyToken, requireSystemAdmin, [
+  body('name').optional().isString().withMessage('Name must be a string'),
+  body('email').optional().isEmail().withMessage('Email must be valid'),
+  body('role').optional().isIn(['system_admin', 'enterprise_admin', 'enterprise_user']).withMessage('Invalid role'),
+  body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { userId } = req.params;
+    const { name, email, role, isActive } = req.body;
+    const adminId = req.company.companyId;
+
+    const user = await prisma.company.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 检查邮箱是否已被其他用户使用
+    if (email && email !== user.email) {
+      const existingUser = await prisma.company.findUnique({
+        where: { email }
+      });
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+    }
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (role !== undefined) updateData.role = role;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const updatedUser = await prisma.company.update({
+      where: { id: userId },
+      data: updateData
+    });
+
+    // 记录审计日志
+    await logAudit(adminId, 'user_updated', userId, {
+      previousData: {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      },
+      newData: updateData
+    }, req);
+
+    res.json({
+      message: 'User updated successfully',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isActive: updatedUser.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 
@@ -233,7 +391,8 @@ router.get('/withdrawals/pending', verifyToken, requireAdmin, async (req, res) =
               id: true,
               name: true,
               email: true,
-              kycStatus: true
+              kycStatus: true,
+              role: true
             }
           }
         },
@@ -332,6 +491,9 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
       totalUsers,
       approvedUsers,
       pendingKYC,
+      systemAdmins,
+      enterpriseAdmins,
+      enterpriseUsers,
       totalDeposits,
       totalWithdrawals,
       totalPayments,
@@ -344,6 +506,12 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
       prisma.company.count({ where: { kycStatus: 'approved' } }),
       // 待KYC用户数
       prisma.company.count({ where: { kycStatus: 'pending' } }),
+      // 系统管理员数
+      prisma.company.count({ where: { role: 'system_admin' } }),
+      // 企业管理员数
+      prisma.company.count({ where: { role: 'enterprise_admin' } }),
+      // 企业用户数
+      prisma.company.count({ where: { role: 'enterprise_user' } }),
       // 总存款
       prisma.deposit.aggregate({
         where: { status: 'completed' },
@@ -380,7 +548,10 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
         users: {
           total: totalUsers,
           approved: approvedUsers,
-          pendingKYC
+          pendingKYC,
+          systemAdmins,
+          enterpriseAdmins,
+          enterpriseUsers
         },
         financial: {
           totalDeposits: totalDeposits._sum.amount || 0,
@@ -400,12 +571,15 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
 // 获取审计日志
 router.get('/audit-logs', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 50, action = '' } = req.query;
+    const { page = 1, limit = 50, action = '', adminId = '' } = req.query;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (action) {
       where.action = action;
+    }
+    if (adminId) {
+      where.adminId = adminId;
     }
 
     const [logs, total] = await Promise.all([
@@ -413,7 +587,7 @@ router.get('/audit-logs', verifyToken, requireAdmin, async (req, res) => {
         where,
         include: {
           admin: {
-            select: { name: true, email: true }
+            select: { name: true, email: true, role: true }
           }
         },
         orderBy: { timestamp: 'desc' },
