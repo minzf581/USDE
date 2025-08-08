@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const responseTime = require('./middleware/responseTime');
 require('dotenv').config();
 
 const { router: authRoutes } = require('./routes/auth');
@@ -15,6 +16,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
 const treasuryRoutes = require('./routes/treasury');
 const enterpriseRoutes = require('./routes/enterprise');
+const settingsRoutes = require('./routes/settings');
 const { calculateDailyEarnings } = require('./services/earningService');
 const paymentService = require('./services/paymentService');
 
@@ -52,6 +54,9 @@ app.use(helmet({
     }
   }
 }));
+
+// 响应时间监控中间件
+app.use(responseTime);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -104,19 +109,77 @@ app.get('/', (req, res) => {
       dashboard: '/api/dashboard',
       admin: '/api/admin',
       treasury: '/api/treasury',
-      enterprise: '/api/enterprise'
+      enterprise: '/api/enterprise',
+      settings: '/api/settings'
     }
   });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+// 增强的健康检查端点
+app.get('/api/health', async (req, res) => {
+  const checks = {};
+  let overall = 'healthy';
+  
+  try {
+    // 数据库检查
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = 'healthy';
+  } catch (error) {
+    checks.database = 'unhealthy';
+    overall = 'unhealthy';
+  }
+  
+  try {
+    // Stripe连接检查
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    await stripe.paymentMethods.list({ limit: 1 });
+    checks.stripe = 'healthy';
+  } catch (error) {
+    checks.stripe = 'unhealthy';
+    overall = 'degraded';
+  }
+  
+  // 内存使用检查
+  const memUsage = process.memoryUsage();
+  const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  checks.memory = {
+    status: memUsageMB > 400 ? 'warning' : 'healthy',
+    usage: `${memUsageMB}MB`
+  };
+  
+  res.status(overall === 'healthy' ? 200 : 503).json({
+    status: overall,
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    port: PORT
+    service: 'usde-api',
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.RAILWAY_ENVIRONMENT || 'development',
+    uptime: process.uptime(),
+    checks
   });
+});
+
+// 新增：指标端点
+app.get('/api/metrics', async (req, res) => {
+  try {
+    const simpleMetrics = require('./services/simpleMetrics');
+    const [appMetrics, dbMetrics] = await Promise.all([
+      simpleMetrics.getMetrics(),
+      simpleMetrics.getDatabaseMetrics()
+    ]);
+    
+    res.json({
+      timestamp: new Date().toISOString(),
+      application: appMetrics,
+      database: dbMetrics
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to collect metrics',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API Routes
@@ -131,13 +194,53 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/treasury', treasuryRoutes);
 app.use('/api/enterprise', enterpriseRoutes);
+app.use('/api/settings', settingsRoutes);
 
-// Error handling middleware
+// 增强错误处理中间件
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  console.error(`[${new Date().toISOString()}] Error:`, {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    body: req.body,
+    user: req.user?.id
+  });
+  
+  // Prisma错误处理
+  if (err.code === 'P2002') {
+    return res.status(409).json({
+      success: false,
+      error: 'Duplicate entry. This record already exists.',
+      code: 'DUPLICATE_ERROR'
+    });
+  }
+  
+  if (err.code === 'P2025') {
+    return res.status(404).json({
+      success: false,
+      error: 'Record not found.',
+      code: 'NOT_FOUND'
+    });
+  }
+  
+  // Stripe错误处理
+  if (err.type === 'StripeCardError') {
+    return res.status(402).json({
+      success: false,
+      error: 'Your card was declined.',
+      code: 'CARD_DECLINED',
+      stripeError: err.code
+    });
+  }
+  
+  // 默认错误
+  res.status(err.status || 500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' 
+      ? 'An internal server error occurred' 
+      : err.message,
+    code: err.code || 'INTERNAL_ERROR'
   });
 });
 
@@ -161,7 +264,8 @@ app.use('*', (req, res) => {
       dashboard: '/api/dashboard/*',
       admin: '/api/admin/*',
       treasury: '/api/treasury/*',
-      enterprise: '/api/enterprise/*'
+      enterprise: '/api/enterprise/*',
+      settings: '/api/settings/*'
     }
   });
 });

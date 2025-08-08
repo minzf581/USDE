@@ -74,7 +74,7 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
   body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('enterpriseRole').isIn(['finance_manager', 'finance_operator', 'observer']).withMessage('Invalid enterprise role')
+  body('enterpriseRole').isIn(['enterprise_finance_manager', 'enterprise_finance_operator']).withMessage('Invalid enterprise role')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -112,7 +112,7 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
         name,
         email,
         password: hashedPassword,
-        role: 'enterprise_user',
+        role: enterpriseRole,
         isEnterpriseAdmin: false,
         isEnterpriseUser: true,
         enterpriseId: enterprise.id,
@@ -154,7 +154,7 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
 // Update enterprise user
 router.put('/users/:userId', verifyToken, requireEnterpriseAdmin, [
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-  body('enterpriseRole').optional().isIn(['finance_manager', 'finance_operator', 'observer']).withMessage('Invalid enterprise role'),
+  body('enterpriseRole').optional().isIn(['enterprise_finance_manager', 'enterprise_finance_operator']).withMessage('Invalid enterprise role'),
   body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
 ], async (req, res) => {
   try {

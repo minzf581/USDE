@@ -34,6 +34,16 @@ async function seedRBAC() {
     const roles = [
       {
         name: 'admin',
+        description: 'System Administrator',
+        permissions: [
+          'view_balance', 'initiate_payment', 'approve_payment', 'view_reports',
+          'manage_settings', 'manage_users', 'view_approvals', 'view_logs',
+          'download_logs', 'initiate_withdrawal', 'approve_withdrawal',
+          'view_kyc', 'approve_kyc'
+        ]
+      },
+      {
+        name: 'enterprise_admin',
         description: 'Enterprise Administrator',
         permissions: [
           'view_balance', 'initiate_payment', 'approve_payment', 'view_reports',
@@ -43,8 +53,8 @@ async function seedRBAC() {
         ]
       },
       {
-        name: 'finance_manager',
-        description: 'Finance Manager',
+        name: 'enterprise_finance_manager',
+        description: 'Enterprise Finance Manager',
         permissions: [
           'view_balance', 'initiate_payment', 'approve_payment', 'view_reports',
           'view_approvals', 'view_logs', 'download_logs', 'initiate_withdrawal',
@@ -52,18 +62,11 @@ async function seedRBAC() {
         ]
       },
       {
-        name: 'finance_operator',
-        description: 'Finance Operator',
+        name: 'enterprise_finance_operator',
+        description: 'Enterprise Finance Operator',
         permissions: [
           'view_balance', 'initiate_payment', 'view_reports', 'view_approvals',
           'initiate_withdrawal', 'view_kyc'
-        ]
-      },
-      {
-        name: 'observer',
-        description: 'Observer',
-        permissions: [
-          'view_balance', 'view_reports', 'view_kyc'
         ]
       }
     ];

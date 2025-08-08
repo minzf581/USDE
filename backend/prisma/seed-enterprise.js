@@ -10,9 +10,8 @@ async function seedEnterprise() {
     // Create roles
     const roles = [
       { name: 'enterprise_admin', description: 'Enterprise Administrator' },
-      { name: 'finance_manager', description: 'Finance Manager' },
-      { name: 'finance_operator', description: 'Finance Operator' },
-      { name: 'observer', description: 'Observer' }
+      { name: 'enterprise_finance_manager', description: 'Enterprise Finance Manager' },
+      { name: 'enterprise_finance_operator', description: 'Enterprise Finance Operator' }
     ];
 
     for (const role of roles) {
@@ -53,20 +52,16 @@ async function seedEnterprise() {
         'manage_settings',
         'view_audit_logs'
       ],
-      'finance_manager': [
+      'enterprise_finance_manager': [
         'view_balance',
         'initiate_payment',
         'approve_payment',
         'view_reports',
         'view_audit_logs'
       ],
-      'finance_operator': [
+      'enterprise_finance_operator': [
         'view_balance',
         'initiate_payment',
-        'view_reports'
-      ],
-      'observer': [
-        'view_balance',
         'view_reports'
       ]
     };

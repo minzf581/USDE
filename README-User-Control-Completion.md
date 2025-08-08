@@ -145,6 +145,49 @@ User Control模块已完全按照Treasury Control模块集成需求进行更新�
 - 使用支付、提现等功能（KYC后）
 - 查看个人资产
 
+## 🧭 导航菜单配置
+
+### 系统管理员登录后菜单
+- Admin Dashboard (包含管理员dashboard, user management, audit logs等功能)
+- Settings (包含系统功能)
+
+### 企业管理员登录后菜单
+- Dashboard (包含Treasury Control功能)
+- User Management (包含Profile功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (包含Enterprise Settings功能)
+
+### 企业财务主管登录后菜单
+- Dashboard (有财务审批功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (不包含Enterprise Settings功能)
+
+### 企业财务操作员登录后菜单
+- Dashboard (无财务审批功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (不包含Enterprise Settings功能)
+
+### 企业用户登录后菜单
+- Dashboard
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings
+
 ## 📊 测试覆盖
 
 ### 功能测试

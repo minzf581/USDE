@@ -386,26 +386,39 @@ Authorization: Bearer <user_token>
 
 ### 🔧 导航菜单控制
 
-**系统管理员导航**:
-- Admin Dashboard
-- User Management（包含删除和修改功能）
-- Withdrawal Approval
-- Audit Logs
+**系统管理员登录后菜单**:
+- Admin Dashboard (包含管理员dashboard, user management, audit logs等功能)
+- Settings (包含系统功能)
 
-**企业管理员导航**:
-- Admin Dashboard
-- User Management（仅查看和KYC审批）
-- Withdrawal Approval
-- Audit Logs
-
-**普通用户导航**:
-- Dashboard
-- Profile
+**企业管理员登录后菜单**:
+- Dashboard (包含Treasury Control功能)
+- User Management (包含Profile功能)
 - Payments
 - Stakes
 - Deposits
 - Withdrawals
 - KYC
+- Settings (包含Enterprise Settings功能)
+
+**企业财务主管登录后菜单**:
+- Dashboard (有财务审批功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (不包含Enterprise Settings功能)
+
+**企业财务操作员登录后菜单**:
+- Dashboard (无财务审批功能)
+- Payments
+- Stakes
+- Deposits
+- Withdrawals
+- KYC
+- Settings (不包含Enterprise Settings功能)
+
+
 
 ## 安全特性
 
@@ -484,7 +497,7 @@ Authorization: Bearer <user_token>
 ## 更新日志
 
 ### v2.0.0 - Treasury Control集成
-- ✅ 新增系统管理员、企业管理员、企业用户角色
+- ✅ 新增系统管理员、企业管理员、企业财务主管，企业财务操作员角色
 - ✅ 支持用户删除和修改功能
 - ✅ 增强用户详情查看功能
 - ✅ 更新权限控制中间件

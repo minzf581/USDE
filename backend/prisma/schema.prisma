@@ -109,7 +109,7 @@ model Company {
   name          String
   email         String   @unique
   password      String
-  role          String   @default("enterprise_admin") // system_admin, enterprise_admin, enterprise_user
+  role          String   @default("enterprise_admin") // admin, enterprise_admin, enterprise_finance_manager, enterprise_finance_operator
   kycStatus     String   @default("pending") // pending, approved, rejected
   kycDocuments  String?  // JSON string of document URLs
   ucBalance     Float    @default(0)
@@ -121,7 +121,7 @@ model Company {
   isEnterpriseAdmin Boolean @default(true) // New users are enterprise admins by default
   isEnterpriseUser  Boolean @default(false)
   enterpriseId      String? // Enterprise ID, null for enterprise admin
-  enterpriseRole    String? // enterprise_admin, finance_manager, finance_operator, observer
+  enterpriseRole    String? // enterprise_admin, enterprise_finance_manager, enterprise_finance_operator
   
   // Enterprise information
   companyName       String? // Company name for enterprise admin

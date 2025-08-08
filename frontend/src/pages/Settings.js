@@ -1,503 +1,582 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { api } from '../services/api';
-import { LoadingSpinner } from '../components/LoadingSpinner';
 import { 
-  Save, 
-  AlertCircle,
-  CheckCircle,
-  DollarSign,
-  Shield,
-  Users,
-  Mail,
-  Building,
-  Edit
+  Settings as SettingsIcon, 
+  Lock, 
+  Globe, 
+  Coins, 
+  Server, 
+  Save,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
+import { settingsAPI } from '../services/api';
 
 const Settings = () => {
-  const { user, updateUser } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState(null);
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('password');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('profile');
 
-  // Check if user has enterprise admin permissions
-  const isEnterpriseAdmin = user?.role === 'enterprise_admin';
-
-  // Profile form states
-  const [profileData, setProfileData] = useState({
-    name: '',
-    email: ''
-  });
-  const [editing, setEditing] = useState(false);
-
-  // Enterprise settings form states
-  const [enterpriseData, setEnterpriseData] = useState({
-    monthlyBudget: 0,
-    quarterlyBudget: 0,
-    approvalThreshold: 1000,
-    autoApprovalEnabled: false,
-    riskFlagThreshold: 5000,
-    approvalWorkflow: 'single'
+  // Password change form
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+    showCurrentPassword: false,
+    showNewPassword: false,
+    showConfirmPassword: false
   });
 
-  useEffect(() => {
-    if (isEnterpriseAdmin) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
-  }, [isEnterpriseAdmin]);
+  // Blockchain settings form
+  const [blockchainForm, setBlockchainForm] = useState({
+    currentChain: 'polygon_testnet',
+    defaultWalletAddress: '',
+    contractAddress: ''
+  });
 
-  useEffect(() => {
-    if (user) {
-      setProfileData({
-        name: user.name || '',
-        email: user.email || ''
-      });
-    }
-  }, [user]);
+  // Token economy settings form
+  const [tokenForm, setTokenForm] = useState({
+    redemptionPeriod: 30,
+    acceptanceRate: 0.95,
+    stakingDays: [30, 90, 180]
+  });
 
-  const loadData = async () => {
+  // System settings form
+  const [systemForm, setSystemForm] = useState({
+    useMockChain: true,
+    maintenanceMode: false,
+    defaultLanguage: 'en',
+    defaultTimezone: 'UTC'
+  });
+
+  const tabs = [
+    { id: 'password', name: 'Password', icon: Lock },
+    { id: 'blockchain', name: 'Blockchain Settings', icon: Globe },
+    { id: 'token', name: 'Token Economy', icon: Coins },
+    { id: 'system', name: 'System Parameters', icon: Server }
+  ];
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
     try {
-      setLoading(true);
+      const response = await settingsAPI.getSettings();
+      const { settings } = response.data;
       
-      // Load enterprise settings
-      const settingsResponse = await api.get('/enterprise/settings');
-      const { treasurySettings } = settingsResponse.data;
-      
-      if (treasurySettings) {
-        setEnterpriseData({
-          monthlyBudget: treasurySettings.monthlyBudget || 0,
-          quarterlyBudget: treasurySettings.quarterlyBudget || 0,
-          approvalThreshold: treasurySettings.approvalThreshold || 1000,
-          autoApprovalEnabled: treasurySettings.autoApprovalEnabled || false,
-          riskFlagThreshold: treasurySettings.riskFlagThreshold || 5000,
-          approvalWorkflow: treasurySettings.approvalWorkflow || 'single'
-        });
+      if (settings.blockchain) {
+        setBlockchainForm(settings.blockchain);
       }
-      setSettings(settingsResponse.data);
+      if (settings.tokenEconomy) {
+        setTokenForm(settings.tokenEconomy);
+      }
+      if (settings.system) {
+        setSystemForm(settings.system);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
-      setError('Failed to load settings');
-    } finally {
-      setLoading(false);
+      // Don't show error for initial load, just use defaults
     }
   };
 
-  const handleProfileChange = (e) => {
-    setProfileData({
-      ...profileData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleProfileSubmit = async (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    setSuccess('');
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('New passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      setError('New password must be at least 8 characters long');
+      setLoading(false);
+      return;
+    }
 
     try {
-      const response = await api.put('/company/profile', profileData);
-      updateUser(response.data.company);
-      setEditing(false);
-      toast.success('Profile updated successfully');
+      await settingsAPI.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      
+      setSuccess('Password updated successfully');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+        showCurrentPassword: false,
+        showNewPassword: false,
+        showConfirmPassword: false
+      });
     } catch (error) {
-      const message = error.response?.data?.error || 'Failed to update profile';
-      toast.error(message);
+      setError(error.response?.data?.error || 'Failed to update password');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEnterpriseChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEnterpriseData(prev => ({
+  const handleBlockchainSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await settingsAPI.updateBlockchainSettings(blockchainForm);
+      setSuccess('Blockchain settings saved successfully');
+    } catch (error) {
+      setError(error.response?.data?.error || 'Failed to save blockchain settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTokenSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await settingsAPI.updateTokenEconomySettings(tokenForm);
+      setSuccess('Token economy settings saved successfully');
+    } catch (error) {
+      setError(error.response?.data?.error || 'Failed to save token economy settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSystemSave = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await settingsAPI.updateSystemSettings(systemForm);
+      setSuccess('System settings saved successfully');
+    } catch (error) {
+      setError(error.response?.data?.error || 'Failed to save system settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const togglePasswordVisibility = (field) => {
+    setPasswordForm(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [field]: !prev[field]
     }));
   };
 
-  const handleEnterpriseSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      setSaving(true);
-      setError('');
-      setSuccess('');
-
-      await api.put('/enterprise/settings', enterpriseData);
-      setSuccess('Settings updated successfully');
-      
-      // Reload settings to get updated data
-      await loadData();
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      setError(error.response?.data?.error || 'Failed to update settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center mb-4">
+          <SettingsIcon className="w-8 h-8 text-primary mr-3" />
+          <h1 className="text-3xl font-bold text-secondary-dark">System Settings</h1>
+        </div>
+        <p className="text-secondary-dark/70">
+          Configure system parameters, blockchain settings, and token economy rules
+        </p>
+      </div>
+
+      {/* Tab Navigation */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
-        <p className="text-gray-600">Manage your profile and enterprise settings</p>
+        <nav className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {tab.name}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-            <span className="text-red-800">{error}</span>
-          </div>
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-600">{error}</p>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center">
-            <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-            <span className="text-green-800">{success}</span>
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+          <p className="text-green-600">{success}</p>
+        </div>
+      )}
+
+      {/* Password Change Tab */}
+      {activeTab === 'password' && (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">Change Administrator Password</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Update your administrator password to maintain account security
+            </p>
+          </div>
+          <div className="p-6">
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={passwordForm.showCurrentPassword ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('showCurrentPassword')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    {passwordForm.showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={passwordForm.showNewPassword ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('showNewPassword')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    {passwordForm.showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={passwordForm.showConfirmPassword ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('showConfirmPassword')}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    {passwordForm.showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {loading ? 'Updating...' : 'Update Password'}
+              </button>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'profile'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Profile
-          </button>
-          {isEnterpriseAdmin && (
-            <button
-              onClick={() => setActiveTab('enterprise')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'enterprise'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Enterprise Settings
-            </button>
-          )}
-        </nav>
-      </div>
-
-      {/* Tab Content */}
-      <div className="bg-white rounded-lg shadow">
-        {activeTab === 'profile' && (
+      {/* Blockchain Settings Tab */}
+      {activeTab === 'blockchain' && (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">🌐 Blockchain Settings</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Configure chain-related parameters for blockchain operations
+            </p>
+          </div>
           <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Company Information</h2>
-              <button
-                onClick={() => setEditing(!editing)}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                {editing ? <Save className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                <span>{editing ? 'Cancel' : 'Edit'}</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleProfileSubmit} className="space-y-6">
+            <form onSubmit={handleBlockchainSave} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Name
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Chain
                 </label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={profileData.name}
-                    onChange={handleProfileChange}
-                    disabled={!editing}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-                    placeholder="Enter company name"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={profileData.email}
-                    onChange={handleProfileChange}
-                    disabled={!editing}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-                    placeholder="Enter email address"
-                  />
-                </div>
-              </div>
-
-              {editing && (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                <select
+                  value={blockchainForm.currentChain}
+                  onChange={(e) => setBlockchainForm(prev => ({ ...prev, currentChain: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  ) : null}
-                  {loading ? 'Saving...' : 'Save Changes'}
-                </button>
-              )}
+                  <option value="polygon_testnet">Polygon Testnet</option>
+                  <option value="polygon_mainnet">Polygon Mainnet</option>
+                  <option value="ethereum_testnet">Ethereum Testnet</option>
+                  <option value="ethereum_mainnet">Ethereum Mainnet</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Default Wallet Address
+                </label>
+                <input
+                  type="text"
+                  value={blockchainForm.defaultWalletAddress}
+                  onChange={(e) => setBlockchainForm(prev => ({ ...prev, defaultWalletAddress: e.target.value }))}
+                  placeholder="0x..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contract Address
+                </label>
+                <input
+                  type="text"
+                  value={blockchainForm.contractAddress}
+                  onChange={(e) => setBlockchainForm(prev => ({ ...prev, contractAddress: e.target.value }))}
+                  placeholder="0x..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {loading ? 'Saving...' : 'Save Blockchain Settings'}
+              </button>
             </form>
-
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Account ID</span>
-                  <span className="font-medium text-gray-900">{user?.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Member Since</span>
-                  <span className="font-medium text-gray-900">
-                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">KYC Status</span>
-                  <span className={`font-medium capitalize px-2 py-1 rounded-full text-sm ${
-                    user?.kycStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                    user?.kycStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                    user?.kycStatus === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {user?.kycStatus || 'Unknown'}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'enterprise' && isEnterpriseAdmin && (
+      {/* Token Economy Settings Tab */}
+      {activeTab === 'token' && (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">🪙 Token Economy Parameters</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Configure stablecoin economic rules and redemption parameters
+            </p>
+          </div>
           <div className="p-6">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Enterprise Settings</h2>
-              <p className="text-gray-600">Configure your enterprise financial control settings</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Settings Form */}
-              <div className="lg:col-span-2">
-                <form onSubmit={handleEnterpriseSubmit} className="space-y-6">
-                  {/* Budget Settings */}
-                  <div>
-                    <h3 className="text-md font-medium text-gray-900 mb-4 flex items-center">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Budget Settings
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Monthly Budget (USD)
-                        </label>
-                        <input
-                          type="number"
-                          name="monthlyBudget"
-                          value={enterpriseData.monthlyBudget}
-                          onChange={handleEnterpriseChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quarterly Budget (USD)
-                        </label>
-                        <input
-                          type="number"
-                          name="quarterlyBudget"
-                          value={enterpriseData.quarterlyBudget}
-                          onChange={handleEnterpriseChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Approval Settings */}
-                  <div>
-                    <h3 className="text-md font-medium text-gray-900 mb-4 flex items-center">
-                      <Shield className="w-4 h-4 mr-2" />
-                      Approval Settings
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Approval Threshold (USD)
-                        </label>
-                        <input
-                          type="number"
-                          name="approvalThreshold"
-                          value={enterpriseData.approvalThreshold}
-                          onChange={handleEnterpriseChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                          step="0.01"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Transactions above this amount require approval
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Risk Flag Threshold (USD)
-                        </label>
-                        <input
-                          type="number"
-                          name="riskFlagThreshold"
-                          value={enterpriseData.riskFlagThreshold}
-                          onChange={handleEnterpriseChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                          step="0.01"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Transactions above this amount trigger risk flags
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Approval Workflow
-                        </label>
-                        <select
-                          name="approvalWorkflow"
-                          value={enterpriseData.approvalWorkflow}
-                          onChange={handleEnterpriseChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="single">Single Approval</option>
-                          <option value="dual">Dual Approval</option>
-                          <option value="committee">Committee Approval</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            name="autoApprovalEnabled"
-                            checked={enterpriseData.autoApprovalEnabled}
-                            onChange={handleEnterpriseChange}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm font-medium text-gray-700">Enable Auto-Approval</span>
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Automatically approve transactions below threshold
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {saving ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4" />
-                      )}
-                      <span>{saving ? 'Saving...' : 'Save Settings'}</span>
-                    </button>
-                  </div>
-                </form>
+            <form onSubmit={handleTokenSave} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Token Redemption Period (days)
+                </label>
+                <input
+                  type="number"
+                  value={tokenForm.redemptionPeriod}
+                  onChange={(e) => setTokenForm(prev => ({ ...prev, redemptionPeriod: parseInt(e.target.value) }))}
+                  min="1"
+                  max="365"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
               </div>
 
-              {/* Enterprise Info */}
-              <div className="lg:col-span-1">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Users className="w-4 h-4 mr-2" />
-                    Enterprise Information
-                  </h3>
-                  
-                  {settings?.enterprise && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Enterprise Name</label>
-                        <p className="text-sm font-medium text-gray-900">{settings.enterprise.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Admin</label>
-                        <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Created</label>
-                        <p className="text-sm text-gray-600">
-                          {new Date(settings.enterprise.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Acceptance Rate (%)
+                </label>
+                <input
+                  type="number"
+                  value={tokenForm.acceptanceRate * 100}
+                  onChange={(e) => setTokenForm(prev => ({ ...prev, acceptanceRate: parseFloat(e.target.value) / 100 }))}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
 
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Current Settings</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Monthly Budget:</span>
-                        <span className="font-medium">${enterpriseData.monthlyBudget.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Quarterly Budget:</span>
-                        <span className="font-medium">${enterpriseData.quarterlyBudget.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Approval Threshold:</span>
-                        <span className="font-medium">${enterpriseData.approvalThreshold.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Risk Flag Threshold:</span>
-                        <span className="font-medium">${enterpriseData.riskFlagThreshold.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Auto-Approval:</span>
-                        <span className={`font-medium ${enterpriseData.autoApprovalEnabled ? 'text-green-600' : 'text-red-600'}`}>
-                          {enterpriseData.autoApprovalEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Workflow:</span>
-                        <span className="font-medium capitalize">{enterpriseData.approvalWorkflow}</span>
-                      </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Staking Days Options
+                </label>
+                <div className="space-y-2">
+                  {tokenForm.stakingDays.map((days, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={days}
+                        onChange={(e) => {
+                          const newStakingDays = [...tokenForm.stakingDays];
+                          newStakingDays[index] = parseInt(e.target.value);
+                          setTokenForm(prev => ({ ...prev, stakingDays: newStakingDays }));
+                        }}
+                        min="1"
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
+                      <span className="text-sm text-gray-600">days</span>
+                      {tokenForm.stakingDays.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStakingDays = tokenForm.stakingDays.filter((_, i) => i !== index);
+                            setTokenForm(prev => ({ ...prev, stakingDays: newStakingDays }));
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
-                  </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setTokenForm(prev => ({ ...prev, stakingDays: [...prev.stakingDays, 365] }))}
+                    className="text-primary hover:text-primary-dark text-sm"
+                  >
+                    + Add Staking Option
+                  </button>
                 </div>
               </div>
-            </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {loading ? 'Saving...' : 'Save Token Economy Settings'}
+              </button>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* System Parameters Tab */}
+      {activeTab === 'system' && (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">⚙️ System Parameters</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Configure advanced system settings and maintenance options
+            </p>
+          </div>
+          <div className="p-6">
+            <form onSubmit={handleSystemSave} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Use Mock Chain
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Enable mock blockchain for testing purposes
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={systemForm.useMockChain}
+                    onChange={(e) => setSystemForm(prev => ({ ...prev, useMockChain: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Maintenance Mode
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Enable system maintenance mode
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={systemForm.maintenanceMode}
+                    onChange={(e) => setSystemForm(prev => ({ ...prev, maintenanceMode: e.target.checked }))}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Default Language
+                </label>
+                <select
+                  value={systemForm.defaultLanguage}
+                  onChange={(e) => setSystemForm(prev => ({ ...prev, defaultLanguage: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="en">English</option>
+                  <option value="zh">中文</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Default Timezone
+                </label>
+                <select
+                  value={systemForm.defaultTimezone}
+                  onChange={(e) => setSystemForm(prev => ({ ...prev, defaultTimezone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="Asia/Shanghai">China Standard Time</option>
+                  <option value="Asia/Tokyo">Japan Standard Time</option>
+                  <option value="Europe/London">GMT</option>
+                  <option value="Europe/Paris">Central European Time</option>
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {loading ? 'Saving...' : 'Save System Settings'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

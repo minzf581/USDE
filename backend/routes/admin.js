@@ -195,7 +195,7 @@ router.delete('/users/:userId', verifyToken, requireSystemAdmin, async (req, res
     }
 
     // 检查是否为系统管理员
-    if (user.role === 'system_admin') {
+    if (user.role === 'admin') {
       return res.status(403).json({ error: 'Cannot delete system admin' });
     }
 
@@ -246,7 +246,7 @@ router.delete('/users/:userId', verifyToken, requireSystemAdmin, async (req, res
 router.put('/users/:userId', verifyToken, requireSystemAdmin, [
   body('name').optional().isString().withMessage('Name must be a string'),
   body('email').optional().isEmail().withMessage('Email must be valid'),
-  body('role').optional().isIn(['system_admin', 'enterprise_admin', 'enterprise_user']).withMessage('Invalid role'),
+  body('role').optional().isIn(['admin', 'enterprise_admin', 'enterprise_finance_manager', 'enterprise_finance_operator']).withMessage('Invalid role'),
   body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
 ], async (req, res) => {
   try {
@@ -312,6 +312,109 @@ router.put('/users/:userId', verifyToken, requireSystemAdmin, [
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// 获取KYC申请列表
+router.get('/kyc/applications', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (status) {
+      where.kycStatus = status;
+    }
+
+    const [applications, total] = await Promise.all([
+      prisma.company.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          kycStatus: true,
+          role: true,
+          companyName: true,
+          enterpriseCompanyType: true,
+          createdAt: true,
+          updatedAt: true,
+          ubos: {
+            select: {
+              id: true,
+              name: true,
+              ownershipPercentage: true,
+              nationality: true,
+              address: true
+            }
+          },
+          kycReviews: {
+            orderBy: { reviewedAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              status: true,
+              notes: true,
+              reviewedAt: true,
+              reviewerId: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: parseInt(limit)
+      }),
+      prisma.company.count({ where })
+    ]);
+
+    // 格式化响应数据
+    const formattedApplications = applications.map(app => ({
+      id: app.id,
+      user: {
+        name: app.name,
+        email: app.email,
+        role: app.role,
+        companyName: app.companyName,
+        enterpriseCompanyType: app.enterpriseCompanyType
+      },
+      status: app.kycStatus,
+      submittedAt: app.createdAt,
+      updatedAt: app.updatedAt,
+      documents: app.ubos.map(ubo => ({
+        name: `${ubo.name} - ${ubo.nationality} (${ubo.ownershipPercentage}%)`,
+        type: 'UBO',
+        details: {
+          nationality: ubo.nationality,
+          address: ubo.address,
+          ownershipPercentage: ubo.ownershipPercentage
+        }
+      })),
+      submittedBy: {
+        name: app.name,
+        email: app.email
+      },
+      notes: app.kycReviews[0]?.notes || null,
+      rejectedReason: app.kycReviews[0]?.status === 'rejected' ? app.kycReviews[0]?.notes : null,
+      lastReview: app.kycReviews[0] ? {
+        status: app.kycReviews[0].status,
+        notes: app.kycReviews[0].notes,
+        reviewedAt: app.kycReviews[0].reviewedAt,
+        reviewerId: app.kycReviews[0].reviewerId
+      } : null
+    }));
+
+    res.json({
+      applications: formattedApplications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get KYC applications error:', error);
+    res.status(500).json({ error: 'Failed to fetch KYC applications' });
   }
 });
 
@@ -493,7 +596,8 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
       pendingKYC,
       systemAdmins,
       enterpriseAdmins,
-      enterpriseUsers,
+      enterpriseFinanceManagers,
+      enterpriseFinanceOperators,
       totalDeposits,
       totalWithdrawals,
       totalPayments,
@@ -507,11 +611,13 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
       // 待KYC用户数
       prisma.company.count({ where: { kycStatus: 'pending' } }),
       // 系统管理员数
-      prisma.company.count({ where: { role: 'system_admin' } }),
+      prisma.company.count({ where: { role: 'admin' } }),
       // 企业管理员数
       prisma.company.count({ where: { role: 'enterprise_admin' } }),
-      // 企业用户数
-      prisma.company.count({ where: { role: 'enterprise_user' } }),
+      // 企业财务管理员数
+      prisma.company.count({ where: { role: 'enterprise_finance_manager' } }),
+      // 企业财务操作员数
+      prisma.company.count({ where: { role: 'enterprise_finance_operator' } }),
       // 总存款
       prisma.deposit.aggregate({
         where: { status: 'completed' },
@@ -551,7 +657,8 @@ router.get('/stats', verifyToken, requireAdmin, async (req, res) => {
           pendingKYC,
           systemAdmins,
           enterpriseAdmins,
-          enterpriseUsers
+          enterpriseFinanceManagers,
+          enterpriseFinanceOperators
         },
         financial: {
           totalDeposits: totalDeposits._sum.amount || 0,

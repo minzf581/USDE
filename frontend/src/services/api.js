@@ -81,11 +81,14 @@ export const stakeAPI = {
 
 export const depositAPI = {
   // Stripe Integration
-  createStripeSession: (amount) => api.post('/deposit/create-session', { amount }),
+  createStripeSession: (data) => api.post('/deposit/create-session', data),
   
   // USDE Balance and Transactions
   getUSDEBalance: (params) => api.get('/deposit/usde-balance', { params }),
   withdrawUSDE: (data) => api.post('/deposit/withdraw', data),
+  
+  // 新增：订单状态跟踪
+  getOrderStatus: (orderId) => api.get(`/deposit/order/${orderId}/status`),
   
   // Deposit History
   getHistory: (params) => api.get('/deposit', { params }),
@@ -123,6 +126,7 @@ export const adminAPI = {
   deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
   
   // KYC Approval
+  getKycApplications: (params) => api.get('/admin/kyc/applications', { params }),
   approveKYC: (userId, data) => api.put(`/admin/kyc/${userId}/approve`, data),
   
   // Withdrawal Management
@@ -134,4 +138,21 @@ export const adminAPI = {
   
   // Audit Logs
   getAuditLogs: (params) => api.get('/admin/audit-logs', { params }),
+}; 
+
+export const settingsAPI = {
+  // Get system settings
+  getSettings: () => api.get('/settings'),
+  
+  // Update blockchain settings
+  updateBlockchainSettings: (data) => api.put('/settings/blockchain', data),
+  
+  // Update token economy settings
+  updateTokenEconomySettings: (data) => api.put('/settings/token-economy', data),
+  
+  // Update system settings
+  updateSystemSettings: (data) => api.put('/settings/system', data),
+  
+  // Change admin password
+  changePassword: (data) => api.put('/settings/password', data),
 }; 

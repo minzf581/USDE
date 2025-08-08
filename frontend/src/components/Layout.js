@@ -3,7 +3,6 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   Home, 
-  User, 
   CreditCard, 
   Lock, 
   ArrowUpRight, 
@@ -28,9 +27,7 @@ const Layout = () => {
     if (user?.role === 'admin') {
       return [
         { name: 'Admin Dashboard', href: '/admin', icon: Shield },
-        { name: 'User Management', href: '/admin/users', icon: User },
-        { name: 'Withdrawal Approval', href: '/admin/withdrawals', icon: ArrowUpRight },
-        { name: 'Audit Logs', href: '/admin/audit', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
       ];
     } else if (user?.role === 'enterprise_admin') {
       return [
@@ -63,8 +60,18 @@ const Layout = () => {
         { name: 'KYC', href: '/kyc', icon: FileText },
         { name: 'Settings', href: '/settings', icon: Settings },
       ];
+    } else if (user?.role === 'enterprise_user') {
+      return [
+        { name: 'Dashboard', href: '/dashboard', icon: Home },
+        { name: 'Payments', href: '/payments', icon: CreditCard },
+        { name: 'Stakes', href: '/stakes', icon: Lock },
+        { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },
+        { name: 'Withdrawals', href: '/withdrawals', icon: ArrowUpRight },
+        { name: 'KYC', href: '/kyc', icon: FileText },
+        { name: 'Settings', href: '/settings', icon: Settings },
+      ];
     } else {
-      // Default navigation for other roles
+      // Default navigation for any other role or no role
       return [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'Payments', href: '/payments', icon: CreditCard },

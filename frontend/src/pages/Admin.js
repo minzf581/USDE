@@ -11,7 +11,10 @@ import {
   Edit,
   Eye,
   Building,
-  User
+  User,
+  FileText,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 
@@ -21,12 +24,16 @@ const Admin = () => {
   const [users, setUsers] = useState([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [kycApplications, setKycApplications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [selectedKyc, setSelectedKyc] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -37,6 +44,8 @@ const Admin = () => {
       fetchPendingWithdrawals();
     } else if (activeTab === 'audit') {
       fetchAuditLogs();
+    } else if (activeTab === 'kyc') {
+      fetchKycApplications();
     }
   }, [activeTab]);
 
@@ -92,14 +101,51 @@ const Admin = () => {
     }
   };
 
+  const fetchKycApplications = async () => {
+    try {
+      setLoading(true);
+      const response = await adminAPI.getKycApplications();
+      setKycApplications(response.data.applications);
+    } catch (error) {
+      console.error('Error fetching KYC applications:', error);
+      setError('Failed to load KYC applications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKYCApproval = async (userId, status, notes = '') => {
     try {
       await adminAPI.approveKYC(userId, { status, notes });
       fetchUsers(); // 刷新用户列表
+      if (activeTab === 'kyc') {
+        fetchKycApplications(); // 刷新KYC申请列表
+      }
     } catch (error) {
       console.error('KYC approval error:', error);
       setError('Failed to update KYC status');
     }
+  };
+
+  const handleKycModalApproval = async (status) => {
+    if (!selectedKyc) return;
+    
+    try {
+      const notes = status === 'rejected' ? rejectReason : '';
+      await adminAPI.approveKYC(selectedKyc.id, { status, notes });
+      setShowKycModal(false);
+      setSelectedKyc(null);
+      setRejectReason('');
+      fetchKycApplications();
+    } catch (error) {
+      console.error('KYC approval error:', error);
+      setError('Failed to update KYC status');
+    }
+  };
+
+  const handleViewKycDetails = (kycApplication) => {
+    setSelectedKyc(kycApplication);
+    setShowKycModal(true);
   };
 
   const handleWithdrawalApproval = async (withdrawalId, status, notes = '') => {
@@ -180,6 +226,7 @@ const Admin = () => {
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: TrendingUp },
     { id: 'users', name: 'User Management', icon: Users },
+    { id: 'kyc', name: 'KYC Approval', icon: FileText },
     { id: 'withdrawals', name: 'Withdrawal Approval', icon: DollarSign },
     { id: 'audit', name: 'Audit Logs', icon: Activity }
   ];
@@ -448,6 +495,74 @@ const Admin = () => {
         </div>
       )}
 
+      {/* KYC Approval Tab */}
+      {activeTab === 'kyc' && (
+        <div className="bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">KYC Approval</h3>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : kycApplications.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No KYC applications found</p>
+            ) : (
+              <div className="space-y-4">
+                {kycApplications.map((application) => (
+                  <div key={application.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{application.user.name}</p>
+                        <p className="text-sm text-gray-600">{application.user.email}</p>
+                        {application.user.companyName && (
+                          <p className="text-sm text-gray-500">{application.user.companyName}</p>
+                        )}
+                        <p className="text-xs text-gray-500">{formatDate(application.submittedAt)}</p>
+                        {getStatusBadge(application.status)}
+                        {getRoleBadge(application.user.role)}
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleViewKycDetails(application)}
+                          className="p-1 text-blue-600 hover:text-blue-800"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {application.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleKycModalApproval('approved')}
+                              className="p-1 text-green-600 hover:text-green-800"
+                              title="Approve KYC"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedKyc(application);
+                                setRejectReason('');
+                                setShowKycModal(true);
+                              }}
+                              className="p-1 text-red-600 hover:text-red-800"
+                              title="Reject KYC"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Withdrawals Tab */}
       {activeTab === 'withdrawals' && (
         <div className="bg-white rounded-lg shadow-md">
@@ -601,6 +716,125 @@ const Admin = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC Details Modal */}
+      {showKycModal && selectedKyc && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">KYC Details</h3>
+              <button
+                onClick={() => {
+                  setShowKycModal(false);
+                  setSelectedKyc(null);
+                  setRejectReason('');
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Basic Information */}
+              <div>
+                <h4 className="font-medium mb-3">Basic Information</h4>
+                <div className="space-y-2">
+                  <p><span className="font-medium">User:</span> {selectedKyc.user.name}</p>
+                  <p><span className="font-medium">Email:</span> {selectedKyc.user.email}</p>
+                  <p><span className="font-medium">Role:</span> {selectedKyc.user.role}</p>
+                  <p><span className="font-medium">Status:</span> {selectedKyc.status}</p>
+                  <p><span className="font-medium">Submitted:</span> {formatDate(selectedKyc.submittedAt)}</p>
+                  {selectedKyc.user.companyName && (
+                    <p><span className="font-medium">Company:</span> {selectedKyc.user.companyName}</p>
+                  )}
+                  {selectedKyc.user.enterpriseCompanyType && (
+                    <p><span className="font-medium">Company Type:</span> {selectedKyc.user.enterpriseCompanyType}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* KYC Documents */}
+              <div>
+                <h4 className="font-medium mb-3">KYC Documents</h4>
+                <div className="space-y-2">
+                  {selectedKyc.documents && selectedKyc.documents.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedKyc.documents.map((doc, index) => (
+                        <div key={index} className="bg-gray-100 p-3 rounded-md">
+                          <div className="flex items-center mb-2">
+                            <FileText className="w-5 h-5 text-gray-600 mr-2" />
+                            <span className="text-sm font-medium">{doc.name}</span>
+                          </div>
+                          {doc.details && (
+                            <div className="text-xs text-gray-600 space-y-1">
+                              <p><span className="font-medium">Nationality:</span> {doc.details.nationality}</p>
+                              <p><span className="font-medium">Address:</span> {doc.details.address}</p>
+                              <p><span className="font-medium">Ownership:</span> {doc.details.ownershipPercentage}%</p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No documents uploaded.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Review History */}
+              <div className="md:col-span-2">
+                <h4 className="font-medium mb-3">Review History</h4>
+                <div className="space-y-2">
+                  {selectedKyc.lastReview ? (
+                    <div className="bg-gray-50 p-3 rounded-md">
+                      <p><span className="font-medium">Last Review:</span> {formatDate(selectedKyc.lastReview.reviewedAt)}</p>
+                      <p><span className="font-medium">Reviewer ID:</span> {selectedKyc.lastReview.reviewerId || 'N/A'}</p>
+                      <p><span className="font-medium">Status:</span> {selectedKyc.lastReview.status}</p>
+                      {selectedKyc.lastReview.notes && (
+                        <p><span className="font-medium">Notes:</span> {selectedKyc.lastReview.notes}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No previous reviews.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Reject Reason Input */}
+              {selectedKyc.status === 'pending' && (
+                <div className="md:col-span-2">
+                  <h4 className="font-medium mb-3">Reject Reason (Optional)</h4>
+                  <textarea
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter reason for rejection..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    rows="3"
+                  />
+                </div>
+              )}
+            </div>
+
+            {selectedKyc.status === 'pending' && (
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  onClick={() => handleKycModalApproval('approved')}
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                  Approve KYC
+                </button>
+                <button
+                  onClick={() => handleKycModalApproval('rejected')}
+                  className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  Reject KYC
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

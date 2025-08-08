@@ -18,7 +18,7 @@ async function seedUsers() {
           name: 'System Administrator',
           email: 'admin@usde.com',
           password: hashedPassword,
-          role: 'system_admin',
+          role: 'admin',
           kycStatus: 'approved',
           isActive: true,
           isEnterpriseAdmin: false,
@@ -111,12 +111,12 @@ async function seedUsers() {
           name: 'Enterprise User',
           email: 'user@usde.com',
           password: hashedPassword,
-          role: 'enterprise_user',
+          role: 'enterprise_finance_operator',
           kycStatus: 'approved',
           isActive: true,
           isEnterpriseAdmin: false,
           isEnterpriseUser: true,
-          enterpriseRole: 'finance_operator',
+          enterpriseRole: 'enterprise_finance_operator',
           companyName: 'Enterprise Solutions Ltd',
           enterpriseCompanyType: 'Private Limited',
           usdeBalance: 5000,
@@ -132,10 +132,10 @@ async function seedUsers() {
 
     console.log('🎉 User seeding completed successfully!');
     console.log('\n📋 Default Users:');
-    console.log('- System Admin: admin@usde.com / admin123');
+    console.log('- Admin: admin@usde.com / admin123');
     console.log('- Demo User: demo@usde.com / demo123');
     console.log('- Enterprise Admin: enterprise@usde.com / enterprise123');
-    console.log('- Enterprise User: user@usde.com / user123');
+    console.log('- Enterprise Finance Operator: user@usde.com / user123');
 
   } catch (error) {
     console.error('❌ Error seeding users:', error);
