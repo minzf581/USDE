@@ -92,30 +92,21 @@ router.get('/history', verifyToken, async (req, res) => {
 
     const payments = await prisma.payment.findMany({
       where: {
-        OR: [
-          { fromId: companyId },
-          { toId: companyId }
-        ]
+        company_id: companyId
       },
       include: {
-        fromCompany: {
-          select: { name: true, email: true }
-        },
-        toCompany: {
+        company: {
           select: { name: true, email: true }
         }
       },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { created_at: 'desc' },
       skip: offset,
       take: parseInt(limit)
     });
 
     const total = await prisma.payment.count({
       where: {
-        OR: [
-          { fromId: companyId },
-          { toId: companyId }
-        ]
+        company_id: companyId
       }
     });
 
@@ -123,15 +114,10 @@ router.get('/history', verifyToken, async (req, res) => {
       payments: payments.map(payment => ({
         id: payment.id,
         amount: payment.amount,
-        lockDays: payment.lockDays,
         status: payment.status,
-        releaseAt: payment.releaseAt,
-        releasedAt: payment.releasedAt,
-        timestamp: payment.timestamp,
-        type: payment.fromId === companyId ? 'sent' : 'received',
-        counterparty: payment.fromId === companyId 
-          ? payment.toCompany 
-          : payment.fromCompany
+        timestamp: payment.created_at,
+        type: 'payment',
+        counterparty: payment.company
       })),
       pagination: {
         page: parseInt(page),

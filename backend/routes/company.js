@@ -370,7 +370,7 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
       select: {
         id: true,
         name: true,
-        ucBalance: true,
+        balance: true,
         usdeBalance: true
       }
     });
@@ -386,7 +386,7 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
         companyType: 'subsidiary'
       },
       _sum: {
-        ucBalance: true,
+        balance: true,
         usdeBalance: true
       }
     });
@@ -395,11 +395,11 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
       parentCompany: {
         id: parentCompany.id,
         name: parentCompany.name,
-        ucBalance: parentCompany.ucBalance || 0,
+        balance: parentCompany.balance || 0,
         usdeBalance: parentCompany.usdeBalance || 0
       },
       subsidiaries: {
-        totalUC: subsidiariesBalance._sum.ucBalance || 0,
+        totalBalance: subsidiariesBalance._sum.balance || 0,
         totalUSDE: subsidiariesBalance._sum.usdeBalance || 0,
         count: await prisma.company.count({
           where: {
@@ -409,7 +409,7 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
         })
       },
       consolidated: {
-        totalUC: (parentCompany.ucBalance || 0) + (subsidiariesBalance._sum.ucBalance || 0),
+        totalBalance: (parentCompany.balance || 0) + (subsidiariesBalance._sum.balance || 0),
         totalUSDE: (parentCompany.usdeBalance || 0) + (subsidiariesBalance._sum.usdeBalance || 0)
       }
     };

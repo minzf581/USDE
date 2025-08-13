@@ -396,41 +396,41 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
     }
     
     // 构建交易查询条件
-    const whereClause = { companyId };
+    const whereClause = { company_id: companyId };
     if (type !== 'all') {
       whereClause.type = type;
     }
     
     // 获取交易历史（分页）
     const [transactions, totalCount] = await Promise.all([
-      prisma.uSDETransaction.findMany({
+      prisma.deposit.findMany({
         where: whereClause,
-        orderBy: { timestamp: 'desc' },
+        orderBy: { created_at: 'desc' },
         skip: (parseInt(page) - 1) * parseInt(limit),
         take: parseInt(limit)
       }),
-      prisma.uSDETransaction.count({ where: whereClause })
+      prisma.deposit.count({ where: whereClause })
     ]);
     
     console.log(`[API] Transactions found: ${transactions.length}, Total: ${totalCount}`);
     
     // 计算统计数据
     const [depositStats, withdrawStats, todayStats] = await Promise.all([
-      prisma.uSDETransaction.aggregate({
-        where: { companyId, type: 'mint' },
+      prisma.deposit.aggregate({
+        where: { company_id: companyId, status: 'completed' },
         _sum: { amount: true },
         _count: { id: true }
       }),
-      prisma.uSDETransaction.aggregate({
-        where: { companyId, type: 'withdraw' },
+      prisma.withdrawal.aggregate({
+        where: { company_id: companyId, status: 'completed' },
         _sum: { amount: true },
         _count: { id: true }
       }),
       prisma.deposit.aggregate({
         where: {
-          companyId,
-          status: 'COMPLETED',
-          timestamp: {
+          company_id: companyId,
+          status: 'completed',
+          created_at: {
             gte: new Date(new Date().setHours(0, 0, 0, 0))
           }
         },
@@ -442,9 +442,9 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
     const todayUsed = todayStats._sum.amount || 0;
     const monthlyUsed = await prisma.deposit.aggregate({
       where: {
-        companyId,
+        company_id: companyId,
         status: 'COMPLETED',
-        timestamp: {
+        created_at: {
           gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         }
       },
@@ -474,11 +474,11 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
         },
         transactions: transactions.map(t => ({
           id: t.id,
-          type: t.type,
+          type: 'deposit',
           amount: t.amount,
-          description: t.description,
-          timestamp: t.timestamp,
-          balanceAfter: t.balanceAfter
+          description: `Deposit of ${t.amount} USD`,
+          timestamp: t.created_at,
+          balanceAfter: null // No balanceAfter field in current schema
         })),
         stats: {
           totalDeposits: depositStats._sum.amount || 0,
@@ -614,14 +614,14 @@ router.get('/', verifyToken, async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = { companyId };
+    const whereClause = { company_id: companyId };
     if (status) {
       whereClause.status = status;
     }
 
     const deposits = await prisma.deposit.findMany({
       where: whereClause,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { created_at: 'desc' },
       skip: offset,
       take: parseInt(limit)
     });
@@ -651,14 +651,14 @@ router.get('/withdrawals', verifyToken, async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = { companyId };
+    const whereClause = { company_id: companyId };
     if (status) {
       whereClause.status = status;
     }
 
     const withdrawals = await prisma.withdrawal.findMany({
       where: whereClause,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { created_at: 'desc' },
       skip: offset,
       take: parseInt(limit)
     });
@@ -690,14 +690,7 @@ router.get('/order/:orderId/status', verifyToken, async (req, res) => {
     const order = await prisma.deposit.findFirst({
       where: {
         id: orderId,
-        companyId
-      },
-      include: {
-        riskAssessments: {
-          where: { assessmentType: 'deposit' },
-          orderBy: { createdAt: 'desc' },
-          take: 1
-        }
+        company_id: companyId
       }
     });
     
@@ -711,44 +704,44 @@ router.get('/order/:orderId/status', verifyToken, async (req, res) => {
     // 构建状态进度
     const progress = [];
     
-    if (order.createdAt) {
+    if (order.created_at) {
       progress.push({
         step: 'order_created',
         status: 'completed',
-        timestamp: order.createdAt,
+        timestamp: order.created_at,
         description: 'Payment order created'
       });
     }
     
-    if (order.stripeSessionId) {
+    if (order.stripe_payment_intent_id) {
       progress.push({
         step: 'payment_session_created',
         status: 'completed',
-        timestamp: order.createdAt,
+        timestamp: order.created_at,
         description: 'Payment session initialized'
       });
     }
     
-    if (order.status === 'COMPLETED') {
+    if (order.status === 'completed') {
       progress.push({
         step: 'payment_confirmed',
         status: 'completed',
-        timestamp: order.completedAt,
+        timestamp: order.updated_at,
         description: 'Payment confirmed by Stripe'
       });
       
       progress.push({
         step: 'tokens_minted',
         status: 'completed',
-        timestamp: order.completedAt,
+        timestamp: order.updated_at,
         description: 'USDE tokens minted and credited'
       });
-    } else if (order.status === 'FAILED') {
+    } else if (order.status === 'failed') {
       progress.push({
         step: 'payment_failed',
         status: 'failed',
-        timestamp: order.updatedAt,
-        description: order.failureReason || 'Payment failed'
+        timestamp: order.updated_at,
+        description: 'Payment failed'
       });
     }
     
@@ -762,12 +755,9 @@ router.get('/order/:orderId/status', verifyToken, async (req, res) => {
         fee: order.fee,
         paymentMethod: order.paymentMethod,
         progress,
-        riskAssessment: order.riskAssessments[0] ? {
-          score: order.riskAssessments[0].riskScore,
-          decision: order.riskAssessments[0].decision
-        } : null,
-        createdAt: order.createdAt,
-        expiresAt: order.expiresAt
+        riskAssessment: null, // No risk assessments table in current schema
+        createdAt: order.created_at,
+        expiresAt: null // No expiresAt field in current schema
       }
     });
     
@@ -789,7 +779,7 @@ router.post('/:depositId/complete', verifyToken, async (req, res) => {
     const deposit = await prisma.deposit.findFirst({
       where: {
         id: depositId,
-        companyId
+        company_id: companyId
       }
     });
 
@@ -820,20 +810,8 @@ router.post('/:depositId/complete', verifyToken, async (req, res) => {
         data: { usdeBalance: balanceAfter }
       });
 
-      // Record USDE transaction
-      await tx.uSDETransaction.create({
-        data: {
-          companyId,
-          type: 'mint',
-          amount: deposit.amount,
-          balanceBefore,
-          balanceAfter,
-          description: `Minted ${deposit.amount} USDE from deposit`,
-          metadata: JSON.stringify({
-            depositId: deposit.id
-          })
-        }
-      });
+      // Note: uSDETransaction table doesn't exist in current schema
+      // Transaction recording is handled by deposit status update
 
       return { updatedDeposit, updatedCompany, balanceBefore, balanceAfter };
     });
@@ -857,26 +835,26 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
 
     const [totalDeposits, pendingDeposits, completedDeposits, totalWithdrawals] = await Promise.all([
       prisma.deposit.aggregate({
-        where: { companyId },
+        where: { company_id: companyId },
         _sum: { amount: true }
       }),
       prisma.deposit.aggregate({
         where: { 
-          companyId,
+          company_id: companyId,
           status: 'pending'
         },
         _sum: { amount: true }
       }),
       prisma.deposit.aggregate({
         where: { 
-          companyId,
+          company_id: companyId,
           status: 'completed'
         },
         _sum: { amount: true }
       }),
       prisma.withdrawal.aggregate({
         where: { 
-          companyId,
+          company_id: companyId,
           status: 'completed'
         },
         _sum: { amount: true }

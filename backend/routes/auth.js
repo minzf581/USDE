@@ -160,26 +160,32 @@ router.post('/login', [
 router.get('/profile', verifyToken, async (req, res) => {
   try {
     const company = await prisma.company.findUnique({
-      where: { id: req.company.companyId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        type: true,
-        status: true,
-        kycStatus: true,
-        balance: true,
-        usdeBalance: true,
-        createdAt: true,
-        updatedAt: true
-      }
+      where: { id: req.company.companyId }
     });
 
     if (!company) {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    res.json({ company });
+    // Return only the fields we need, in the correct order
+    const profileData = {
+      id: company.id,
+      name: company.name,
+      email: company.email,
+      type: company.type,
+      status: company.status,
+      kycStatus: company.kycStatus,
+      balance: company.balance,
+      usdeBalance: company.usdeBalance,
+      role: company.role,
+      isEnterpriseAdmin: company.isEnterpriseAdmin,
+      isEnterpriseUser: company.isEnterpriseUser,
+      enterpriseRole: company.enterpriseRole,
+      createdAt: company.createdAt,
+      updatedAt: company.updatedAt
+    };
+
+    res.json({ company: profileData });
 
   } catch (error) {
     console.error('Profile fetch error:', error);

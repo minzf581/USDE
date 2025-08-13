@@ -112,6 +112,7 @@ model Company {
   email       String   @unique
   password    String
   type        String   @default("company") // company, enterprise, subsidiary
+  role        String   @default("enterprise_user") // enterprise_admin, enterprise_user, admin, etc.
   status      String   @default("active")
   kycStatus   String   @default("pending")
   balance     Float    @default(0)

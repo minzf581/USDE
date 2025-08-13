@@ -258,21 +258,13 @@ class WithdrawalService {
 
     const [withdrawals, total] = await Promise.all([
       prisma.withdrawal.findMany({
-        where: { companyId },
-        include: {
-          bankAccount: {
-            select: {
-              bankName: true,
-              accountNum: true
-            }
-          }
-        },
-        orderBy: { timestamp: 'desc' },
+        where: { company_id: companyId },
+        orderBy: { created_at: 'desc' },
         skip: offset,
         take: limit
       }),
       prisma.withdrawal.count({
-        where: { companyId }
+        where: { company_id: companyId }
       })
     ]);
 
@@ -295,22 +287,22 @@ class WithdrawalService {
       successfulWithdrawals,
       totalAmount
     ] = await Promise.all([
-      prisma.withdrawal.count({ where: { companyId } }),
+      prisma.withdrawal.count({ where: { company_id: companyId } }),
       prisma.withdrawal.count({ 
         where: { 
-          companyId,
+          company_id: companyId,
           status: { in: ['pending', 'processing'] }
         }
       }),
       prisma.withdrawal.count({ 
         where: { 
-          companyId,
+          company_id: companyId,
           status: 'success'
         }
       }),
       prisma.withdrawal.aggregate({
         where: { 
-          companyId,
+          company_id: companyId,
           status: 'success'
         },
         _sum: { amount: true }

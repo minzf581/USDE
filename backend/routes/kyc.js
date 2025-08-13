@@ -170,42 +170,20 @@ router.post('/upload-documents', verifyToken, upload.array('documents', 10), asy
 router.get('/status', verifyToken, async (req, res) => {
   try {
     const company = await prisma.company.findUnique({
-      where: { id: req.company.companyId },
-      include: {
-        ubos: true,
-        kycReviews: {
-          orderBy: { reviewedAt: 'desc' },
-          take: 1
-        }
-      }
+      where: { id: req.company.companyId }
     });
 
     if (!company) {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    const documents = company.kycDocuments ? JSON.parse(company.kycDocuments) : [];
-    const latestReview = company.kycReviews[0];
-
     res.json({
       status: company.kycStatus,
       companyInfo: {
-        companyNameEn: company.companyNameEn,
-        companyRegNumber: company.companyRegNumber,
-        countryOfReg: company.countryOfReg,
-        regAddress: company.regAddress,
-        incorporationDate: company.incorporationDate,
-        companyType: company.companyType
+        name: company.name,
+        email: company.email,
+        type: company.type
       },
-      compliance: {
-        isPEP: company.isPEP,
-        isSanctioned: company.isSanctioned,
-        complianceAgreed: company.complianceAgreed
-      },
-      ubos: company.ubos,
-      documentsCount: documents.length,
-      documents: documents,
-      latestReview: latestReview,
       submittedAt: company.createdAt
     });
 

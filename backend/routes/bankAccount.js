@@ -12,8 +12,8 @@ router.get('/', verifyToken, async (req, res) => {
     const companyId = req.company.companyId;
 
     const bankAccounts = await prisma.bankAccount.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' }
+      where: { company_id: companyId },
+      orderBy: { created_at: 'desc' }
     });
 
     res.json({ bankAccounts });
@@ -41,9 +41,9 @@ router.post('/', verifyToken, requireKYCApproved, [
     // 检查是否已存在相同的银行账户
     const existingAccount = await prisma.bankAccount.findFirst({
       where: {
-        companyId,
-        bankName,
-        accountNum
+        company_id: companyId,
+        bank_name: bankName,
+        account_number: accountNum
       }
     });
 
@@ -54,11 +54,11 @@ router.post('/', verifyToken, requireKYCApproved, [
     // 创建银行账户
     const bankAccount = await prisma.bankAccount.create({
       data: {
-        companyId,
-        bankName,
-        accountNum,
-        currency,
-        isVerified: false // 需要验证
+        company_id: companyId,
+        bank_name: bankName,
+        account_number: accountNum,
+        account_type: 'checking',
+        status: 'active'
       }
     });
 
@@ -82,7 +82,7 @@ router.post('/:accountId/verify', verifyToken, requireKYCApproved, async (req, r
     const bankAccount = await prisma.bankAccount.findFirst({
       where: {
         id: accountId,
-        companyId
+        company_id: companyId
       }
     });
 

@@ -13,16 +13,16 @@ router.get('/', verifyToken, async (req, res) => {
     const { page = 1, limit = 10, status } = req.query;
     const offset = (page - 1) * limit;
 
-    const whereClause = { companyId };
+    const whereClause = { company_id: companyId };
     if (status === 'active') {
-      whereClause.unlocked = false;
-    } else if (status === 'unlocked') {
-      whereClause.unlocked = true;
+      whereClause.status = 'active';
+    } else if (status === 'completed') {
+      whereClause.status = 'completed';
     }
 
     const stakes = await prisma.stake.findMany({
       where: whereClause,
-      orderBy: { startDate: 'desc' },
+      orderBy: { start_date: 'desc' },
       skip: offset,
       take: parseInt(limit)
     });
@@ -32,15 +32,15 @@ router.get('/', verifyToken, async (req, res) => {
     // Calculate current earnings for each stake
     const stakesWithEarnings = stakes.map(stake => {
       const now = new Date();
-      const daysHeld = Math.floor((now - stake.startDate) / (1000 * 60 * 60 * 24));
-      const dailyRate = stake.interestRate / 365;
-      const currentEarnings = stake.unlocked ? 0 : (stake.amount * dailyRate * daysHeld);
+      const daysHeld = Math.floor((now - stake.start_date) / (1000 * 60 * 60 * 24));
+      const dailyRate = stake.apy / 365;
+      const currentEarnings = stake.status === 'active' ? (stake.amount * dailyRate * daysHeld) : 0;
 
       return {
         ...stake,
         currentEarnings: Math.max(0, currentEarnings),
         daysHeld,
-        isExpired: now > stake.endDate
+        isExpired: stake.end_date ? now > stake.end_date : false
       };
     });
 
@@ -69,12 +69,7 @@ router.get('/:stakeId', verifyToken, async (req, res) => {
     const stake = await prisma.stake.findFirst({
       where: {
         id: stakeId,
-        companyId
-      },
-      include: {
-        earnings: {
-          orderBy: { date: 'desc' }
-        }
+        company_id: companyId
       }
     });
 
@@ -84,20 +79,18 @@ router.get('/:stakeId', verifyToken, async (req, res) => {
 
     // Calculate current earnings
     const now = new Date();
-    const daysHeld = Math.floor((now - stake.startDate) / (1000 * 60 * 60 * 24));
-    const dailyRate = stake.interestRate / 365;
-    const currentEarnings = stake.unlocked ? 0 : (stake.amount * dailyRate * daysHeld);
-
-    const totalEarnings = stake.earnings.reduce((sum, earning) => sum + earning.amount, 0);
+    const daysHeld = Math.floor((now - stake.start_date) / (1000 * 60 * 60 * 24));
+    const dailyRate = stake.apy / 365;
+    const currentEarnings = stake.status === 'active' ? (stake.amount * dailyRate * daysHeld) : 0;
 
     res.json({
       stake: {
         ...stake,
         currentEarnings: Math.max(0, currentEarnings),
-        totalEarnings,
+        totalEarnings: 0, // No earnings table in current schema
         daysHeld,
-        isExpired: now > stake.endDate,
-        remainingDays: Math.max(0, Math.ceil((stake.endDate - now) / (1000 * 60 * 60 * 24)))
+        isExpired: stake.end_date ? now > stake.end_date : false,
+        remainingDays: stake.end_date ? Math.max(0, Math.ceil((stake.end_date - now) / (1000 * 60 * 60 * 24))) : 0
       }
     });
 
@@ -150,12 +143,12 @@ router.post('/', verifyToken, [
       // Create stake
       const stake = await tx.stake.create({
         data: {
-          companyId,
+          company_id: companyId,
           amount,
-          startDate: new Date(),
-          endDate,
-          unlocked: false,
-          interestRate
+          start_date: new Date(),
+          end_date: endDate,
+          status: 'active',
+          apy: interestRate || 0.05
         }
       });
 
@@ -167,9 +160,9 @@ router.post('/', verifyToken, [
       stake: {
         id: result.stake.id,
         amount: result.stake.amount,
-        startDate: result.stake.startDate,
-        endDate: result.stake.endDate,
-        interestRate: result.stake.interestRate
+        start_date: result.stake.start_date,
+        end_date: result.stake.end_date,
+        apy: result.stake.apy
       },
       newBalance: result.updatedCompany.usdeBalance
     });
@@ -185,33 +178,29 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
   try {
     const companyId = req.company.companyId;
 
-    const [totalStaked, activeStakes, totalEarnings] = await Promise.all([
+    const [totalStaked, activeStakes] = await Promise.all([
       prisma.stake.aggregate({
-        where: { companyId },
+        where: { company_id: companyId },
         _sum: { amount: true }
       }),
       prisma.stake.count({
         where: { 
-          companyId,
-          unlocked: false
+          company_id: companyId,
+          status: 'active'
         }
-      }),
-      prisma.earning.aggregate({
-        where: { companyId },
-        _sum: { amount: true }
       })
     ]);
 
     const activeStakesData = await prisma.stake.findMany({
       where: {
-        companyId,
-        unlocked: false
+        company_id: companyId,
+        status: 'active'
       },
       select: {
         amount: true,
-        startDate: true,
-        endDate: true,
-        interestRate: true
+        start_date: true,
+        end_date: true,
+        apy: true
       }
     });
 
@@ -220,15 +209,15 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
     let currentDailyEarnings = 0;
     
     activeStakesData.forEach(stake => {
-      const daysHeld = Math.floor((now - stake.startDate) / (1000 * 60 * 60 * 24));
-      const dailyRate = stake.interestRate / 365;
+      const daysHeld = Math.floor((now - stake.start_date) / (1000 * 60 * 60 * 24));
+      const dailyRate = stake.apy / 365;
       currentDailyEarnings += stake.amount * dailyRate;
     });
 
     res.json({
       totalStaked: totalStaked._sum.amount || 0,
       activeStakes,
-      totalEarnings: totalEarnings._sum.amount || 0,
+      totalEarnings: 0, // No earnings table in current schema
       currentDailyEarnings: Math.round(currentDailyEarnings * 100) / 100
     });
 
