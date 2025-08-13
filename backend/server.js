@@ -325,7 +325,7 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Available endpoints:`);
@@ -337,6 +337,14 @@ app.listen(PORT, '0.0.0.0', () => {
   // Initialize daily earnings calculation (runs at midnight)
   if (process.env.NODE_ENV === 'production') {
     console.log('💰 Daily earnings calculation scheduled');
+  }
+  
+  // 系统启动时初始化用户
+  try {
+    const { initUsersOnStartup } = require('./init-users-on-startup');
+    await initUsersOnStartup();
+  } catch (error) {
+    console.error('❌ 用户初始化失败:', error);
   }
 });
 
