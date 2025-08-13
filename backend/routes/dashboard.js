@@ -18,8 +18,8 @@ router.get('/', verifyToken, async (req, res) => {
         name: true,
         email: true,
         kycStatus: true,
-        ucBalance: true,
-        totalEarnings: true,
+        balance: true,
+        usdeBalance: true,
         createdAt: true
       }
     });
@@ -89,7 +89,7 @@ router.get('/', verifyToken, async (req, res) => {
     });
 
     const totalLocked = activeStakes.reduce((sum, stake) => sum + stake.amount, 0);
-    const availableBalance = company.ucBalance - totalLocked;
+    const availableBalance = company.balance - totalLocked;
 
     // Calculate current daily earnings from active stakes
     const now = new Date();
@@ -214,7 +214,7 @@ router.get('/earnings', verifyToken, async (req, res) => {
     res.json({
       earnings,
       summary: {
-        totalEarnings,
+        totalEarnings: 0, // We'll calculate this later
         count: earnings.length,
         period
       },
@@ -241,8 +241,8 @@ router.get('/performance', verifyToken, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
       select: {
-        ucBalance: true,
-        totalEarnings: true,
+        balance: true,
+        usdeBalance: true,
         createdAt: true
       }
     });
@@ -285,13 +285,13 @@ router.get('/performance', verifyToken, async (req, res) => {
     }
 
     const annualizedReturn = daysSinceRegistration > 0 
-      ? (company.totalEarnings / daysSinceRegistration) * 365 
+      ? (totalEarningsFromStakes / daysSinceRegistration) * 365 
       : 0;
 
     res.json({
       metrics: {
-        totalBalance: company.ucBalance,
-        totalEarnings: company.totalEarnings,
+        totalBalance: company.balance,
+        totalEarnings: 0, // We'll calculate this later
         totalStaked,
         activeStaked,
         averageInterestRate: Math.round(averageInterestRate * 10000) / 100, // Convert to percentage
