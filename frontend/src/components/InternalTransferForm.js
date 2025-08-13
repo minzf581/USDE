@@ -1,241 +1,301 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Modal, 
+  Form, 
+  Input, 
+  InputNumber, 
+  Select, 
+  Button, 
+  message, 
+  Card,
+  Row,
+  Col,
+  Alert
+} from 'antd';
+import { SwapOutlined, BankOutlined, DollarOutlined } from '@ant-design/icons';
+import { useCompany } from '../contexts/CompanyContext';
+import { companyAPI } from '../services/api';
 
-const InternalTransferForm = () => {
-  const { user } = useAuth();
-  const [subsidiaries, setSubsidiaries] = useState([]);
+const { Option } = Select;
+const { TextArea } = Input;
+
+const InternalTransferForm = ({ visible, onCancel, onSuccess }) => {
+  const { currentCompany, subsidiaries, isParentCompany } = useCompany();
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    targetCompanyId: '',
-    tokenAddress: '0xA0b86a33E6B3F...', // Default USDE token address
-    amount: '',
-    purpose: ''
-  });
+  const [availableTokens] = useState(['USDC', 'USDT', 'DAI']);
+  const [selectedToken, setSelectedToken] = useState('USDC');
+  const [sourceBalance, setSourceBalance] = useState(0);
+  const [approvalRequired, setApprovalRequired] = useState(false);
+  const [approvalDetails, setApprovalDetails] = useState(null);
 
-  useEffect(() => {
-    if (user?.companyId) {
-      fetchSubsidiaries();
+  // 获取可用目标公司
+  const getAvailableTargetCompanies = () => {
+    if (!isParentCompany) {
+      // 子公司只能向父公司转账
+      return [currentCompany?.parentCompany].filter(Boolean);
     }
-  }, [user?.companyId]);
-
-  const fetchSubsidiaries = async () => {
-    try {
-      const response = await api.get(`/api/companies/${user.companyId}/subsidiaries`);
-      setSubsidiaries(response.data);
-    } catch (error) {
-      console.error('Error fetching subsidiaries:', error);
-    }
+    
+    // 父公司可以向所有子公司转账
+    return subsidiaries;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // 获取源公司余额
+  const fetchSourceBalance = useCallback(async () => {
+    if (!currentCompany) return;
     
-    if (!formData.targetCompanyId || !formData.amount || !formData.purpose) {
-      alert('Please fill in all required fields');
-      return;
+    try {
+      // 这里应该调用实际的API获取余额
+      // 暂时使用模拟数据
+      const mockBalance = Math.floor(Math.random() * 1000000) + 100000;
+      setSourceBalance(mockBalance);
+    } catch (error) {
+      console.error('Error fetching source balance:', error);
     }
+  }, [currentCompany]);
 
+  // 检查审批要求
+  const checkApprovalRequirements = (amount) => {
+    if (!currentCompany?.transferSettings) return;
+    
+    const { approvalThresholds } = currentCompany.transferSettings;
+    
+    for (const threshold of approvalThresholds) {
+      if (amount <= threshold.maxAmount) {
+        setApprovalRequired(true);
+        setApprovalDetails({
+          requiredApprovals: threshold.requiredApprovals,
+          estimatedTime: threshold.estimatedTime || '2-4 hours',
+          approvers: threshold.approvers || []
+        });
+        return;
+      }
+    }
+    
+    setApprovalRequired(false);
+    setApprovalDetails(null);
+  };
+
+  // 处理转账提交
+  const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      await api.post('/api/payments/internal-transfer', formData);
       
-      // Reset form
-      setFormData({
-        targetCompanyId: '',
-        tokenAddress: '0xA0b86a33E6B3F...',
-        amount: '',
-        purpose: ''
-      });
+      const transferData = {
+        sourceCompanyId: currentCompany.id,
+        targetCompanyId: values.targetCompany,
+        amount: values.amount,
+        token: selectedToken,
+        purpose: values.purpose,
+        priority: values.priority || 'normal'
+      };
+
+      await companyAPI.internalTransfer(transferData);
       
-      alert('Internal transfer request created successfully!');
+      message.success('Transfer request submitted successfully, awaiting approval');
+      form.resetFields();
+      onSuccess?.();
+      onCancel();
+      
     } catch (error) {
-      console.error('Error creating internal transfer:', error);
-      alert('Failed to create transfer request: ' + (error.response?.data?.error || error.message));
+      console.error('Transfer error:', error);
+      message.error('Failed to submit transfer request');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  // 当可见性改变时重置表单
+  useEffect(() => {
+    if (visible) {
+      form.resetFields();
+      fetchSourceBalance();
+    }
+  }, [visible, form, fetchSourceBalance]);
+
+  // 当金额改变时检查审批要求
+  const handleAmountChange = (amount) => {
+    if (amount) {
+      checkApprovalRequirements(amount);
+    }
   };
 
-  if (subsidiaries.length === 0) {
-    return (
-      <div className="p-6">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-yellow-800">
-            No subsidiaries available for internal transfers. Please contact your administrator to set up subsidiaries.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const targetCompanies = getAvailableTargetCompanies();
 
   return (
-    <div className="p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Internal Transfer Request</h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Target Company Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Company <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="targetCompanyId"
-                value={formData.targetCompanyId}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">Select Target Company</option>
-                {subsidiaries.map(company => (
-                  <option key={company.id} value={company.id}>
-                    {company.name} ({company.companyCode})
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                Select the subsidiary company to transfer funds to
-              </p>
-            </div>
-
-            {/* Token Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Token <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="tokenAddress"
-                value={formData.tokenAddress}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="0xA0b86a33E6B3F...">USDE Stablecoin</option>
-                <option value="0xUC...">UC Token</option>
-              </select>
-              <p className="mt-1 text-sm text-gray-500">
-                Select the token to transfer
-              </p>
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  step="0.000000000000000001"
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00"
-                  required
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">
-                    {formData.tokenAddress.includes('USDE') ? 'USDE' : 'UC'}
-                  </span>
-                </div>
-              </div>
-              <p className="mt-1 text-sm text-gray-500">
-                Enter the amount to transfer
-              </p>
-            </div>
-
-            {/* Purpose */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Purpose <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                name="purpose"
-                value={formData.purpose}
-                onChange={handleInputChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Describe the purpose of this transfer..."
-                required
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                Provide a clear description of why this transfer is needed
-              </p>
-            </div>
-
-            {/* Transfer Summary */}
-            {formData.targetCompanyId && formData.amount && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-blue-900 mb-2">Transfer Summary</h3>
-                <div className="text-sm text-blue-800 space-y-1">
-                  <p>
-                    <span className="font-medium">From:</span> {user?.companyName || 'Your Company'}
-                  </p>
-                  <p>
-                    <span className="font-medium">To:</span> {
-                      subsidiaries.find(s => s.id === formData.targetCompanyId)?.name
-                    }
-                  </p>
-                  <p>
-                    <span className="font-medium">Amount:</span> {formData.amount} {
-                      formData.tokenAddress.includes('USDE') ? 'USDE' : 'UC'
-                    }
-                  </p>
-                  <p>
-                    <span className="font-medium">Purpose:</span> {formData.purpose}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setFormData({
-                  targetCompanyId: '',
-                  tokenAddress: '0xA0b86a33E6B3F...',
-                  amount: '',
-                  purpose: ''
-                })}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Reset Form
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !formData.targetCompanyId || !formData.amount || !formData.purpose}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {loading ? 'Creating Request...' : 'Create Transfer Request'}
-              </button>
-            </div>
-          </form>
-
-          {/* Important Notes */}
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h3 className="text-sm font-medium text-yellow-900 mb-2">Important Notes:</h3>
-            <ul className="text-sm text-yellow-800 space-y-1">
-              <li>• Internal transfers require approval from authorized personnel</li>
-              <li>• Transfers can only be made between companies in the same group</li>
-              <li>• Ensure sufficient balance before creating transfer requests</li>
-              <li>• All transfers are logged and auditable</li>
-            </ul>
+    <Modal
+              title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <SwapOutlined style={{ color: '#1890ff' }} />
+            <span>Internal Transfer</span>
           </div>
-        </div>
-      </div>
-    </div>
+        }
+      visible={visible}
+      onCancel={onCancel}
+      footer={null}
+      width={600}
+      destroyOnClose
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        initialValues={{
+          priority: 'normal'
+        }}
+      >
+        {/* Transfer Type Selection */}
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <BankOutlined style={{ color: '#52c41a' }} />
+            <span style={{ fontWeight: 500 }}>Transfer Type</span>
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            {isParentCompany ? 'Parent Company → Subsidiary' : 'Subsidiary → Parent Company'}
+          </div>
+        </Card>
+
+        {/* Source Company Information */}
+        <Form.Item label="Source Company">
+          <Input
+            value={currentCompany?.name || 'Unknown Company'}
+            disabled
+            prefix={<BankOutlined />}
+          />
+        </Form.Item>
+
+        {/* Target Company Selection */}
+        <Form.Item
+          name="targetCompany"
+          label="Target Company"
+          rules={[{ required: true, message: 'Please select target company' }]}
+        >
+          <Select placeholder="Select target company">
+            {targetCompanies.map(company => (
+              <Option key={company.id} value={company.id}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>{company.name}</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    {company.companyCode}
+                  </div>
+                </div>
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        {/* Token and Amount */}
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item label="Token Type">
+              <Select
+                value={selectedToken}
+                onChange={setSelectedToken}
+                placeholder="Select token"
+              >
+                {availableTokens.map(token => (
+                  <Option key={token} value={token}>{token}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item label="Available Balance">
+              <Input
+                value={`${sourceBalance.toLocaleString()} ${selectedToken}`}
+                disabled
+                prefix={<DollarOutlined />}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Form.Item
+          name="amount"
+          label="Transfer Amount"
+          rules={[
+            { required: true, message: 'Please enter transfer amount' },
+            { type: 'number', min: 1, message: 'Amount must be greater than 0' },
+            {
+              validator: (_, value) => {
+                if (value && value > sourceBalance) {
+                  return Promise.reject(new Error('Transfer amount cannot exceed available balance'));
+                }
+                return Promise.resolve();
+              }
+            }
+          ]}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            min={1}
+            max={sourceBalance}
+            precision={2}
+            placeholder="Enter transfer amount"
+            onChange={handleAmountChange}
+            addonAfter={selectedToken}
+          />
+        </Form.Item>
+
+        {/* Priority Selection */}
+        <Form.Item name="priority" label="Priority">
+          <Select placeholder="Select priority">
+            <Option value="low">Low</Option>
+            <Option value="normal">Normal</Option>
+            <Option value="high">High</Option>
+            <Option value="urgent">Urgent</Option>
+          </Select>
+        </Form.Item>
+
+        {/* Transfer Purpose */}
+        <Form.Item
+          name="purpose"
+          label="Transfer Purpose"
+          rules={[{ required: true, message: 'Please enter transfer purpose' }]}
+        >
+          <TextArea
+            rows={3}
+            placeholder="Please describe the transfer purpose in detail, e.g., Q4 budget allocation, operational funds, etc."
+            maxLength={200}
+            showCount
+          />
+        </Form.Item>
+
+        {/* Approval Requirements Notice */}
+        {approvalRequired && approvalDetails && (
+          <Alert
+            message="Approval Requirements"
+            description={
+              <div>
+                <p>This transfer requires <strong>{approvalDetails.requiredApprovals}</strong> approval(s)</p>
+                <p>Estimated approval time: <strong>{approvalDetails.estimatedTime}</strong></p>
+                {approvalDetails.approvers.length > 0 && (
+                  <p>Approvers: {approvalDetails.approvers.join(', ')}</p>
+                )}
+              </div>
+            }
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {/* Action Buttons */}
+        <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+          <Button onClick={onCancel} style={{ marginRight: 8 }}>
+            Cancel
+          </Button>
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            loading={loading}
+            icon={<SwapOutlined />}
+          >
+            Submit Transfer Request
+          </Button>
+        </Form.Item>
+      </Form>
+    </Modal>
   );
 };
 

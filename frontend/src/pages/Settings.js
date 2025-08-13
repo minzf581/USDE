@@ -9,11 +9,11 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext'; // 暂时注释掉未使用的import，后续可能需要
 import { settingsAPI } from '../services/api';
 
 const Settings = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth(); // 暂时注释掉未使用的变量，后续可能需要
   const [activeTab, setActiveTab] = useState('password');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

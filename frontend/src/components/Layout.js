@@ -13,7 +13,8 @@ import {
   LogOut,
   Shield,
   Users,
-  Settings
+  Settings,
+  Building
 } from 'lucide-react';
 
 const Layout = () => {
@@ -33,6 +34,7 @@ const Layout = () => {
       return [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'User Management', href: '/enterprise/users', icon: Users },
+        { name: 'Subsidiaries', href: '/subsidiaries', icon: Building },
         { name: 'Payments', href: '/payments', icon: CreditCard },
         { name: 'Stakes', href: '/stakes', icon: Lock },
         { name: 'Deposits', href: '/deposits', icon: ArrowDownLeft },

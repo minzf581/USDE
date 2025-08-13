@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, History, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Wallet, CreditCard, History, AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { depositAPI } from '../services/api';
@@ -16,30 +16,7 @@ const Deposits = () => {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
-  // Check for success/cancel from Stripe
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const canceled = searchParams.get('canceled');
-    const orderId = searchParams.get('order_id');
-    
-    if (success) {
-      toast.success('Payment successful! USDE tokens have been minted.');
-    } else if (canceled) {
-      toast.error('Payment was canceled.');
-    }
-    
-    // 检查URL参数中是否有订单ID
-    if (orderId) {
-      checkOrderStatus(orderId);
-    }
-  }, [searchParams]);
-
-  // Load data
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [usdeResponse, statsResponse] = await Promise.all([
@@ -58,10 +35,10 @@ const Deposits = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // 新增：实时订单状态检查
-  const checkOrderStatus = async (orderId) => {
+  const checkOrderStatus = useCallback(async (orderId) => {
     try {
       const response = await depositAPI.getOrderStatus(orderId);
       setOrderStatus(response.data.data);
@@ -73,7 +50,30 @@ const Deposits = () => {
     } catch (error) {
       console.error('Failed to check order status:', error);
     }
-  };
+  }, [loadData]);
+
+  // Check for success/cancel from Stripe
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    const orderId = searchParams.get('order_id');
+    
+    if (success) {
+      toast.success('Payment successful! USDE tokens have been minted.');
+    } else if (canceled) {
+      toast.error('Payment was canceled.');
+    }
+    
+    // 检查URL参数中是否有订单ID
+    if (orderId) {
+      checkOrderStatus(orderId);
+    }
+  }, [searchParams, checkOrderStatus]);
+
+  // Load data
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleDeposit = async (data) => {
     try {
@@ -194,14 +194,15 @@ const Deposits = () => {
       }
     };
 
-    const getStatusIcon = (status) => {
-      switch (status) {
-        case 'COMPLETED': return <CheckCircle className="w-5 h-5 text-green-500" />;
-        case 'FAILED': return <XCircle className="w-5 h-5 text-red-500" />;
-        case 'PROCESSING': return <Clock className="w-5 h-5 text-yellow-500" />;
-        default: return <Clock className="w-5 h-5 text-gray-500" />;
-      }
-    };
+    // 暂时注释掉未使用的函数，后续可能需要
+    // const getStatusIcon = (status) => {
+    //   switch (status) {
+    //     case 'COMPLETED': return <CheckCircle className="w-5 h-5 text-green-500" />;
+    //     case 'FAILED': return <XCircle className="w-5 h-5 text-red-500" />;
+    //     case 'PROCESSING': return <Clock className="w-5 h-5 text-yellow-500" />;
+    //     case 'default': return <Clock className="w-5 h-5 text-gray-500" />;
+    //   }
+    // };
 
     return (
       <div className="bg-white p-4 rounded-lg shadow mb-6 border">

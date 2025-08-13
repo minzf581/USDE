@@ -43,10 +43,30 @@ export const authAPI = {
 };
 
 export const companyAPI = {
+  // 基础公司信息
   updateProfile: (data) => api.put('/company/profile', data),
   uploadKYC: (formData) => api.post('/company/kyc/upload', formData),
   getKYCStatus: () => api.get('/company/kyc/status'),
   updateKYCStatus: (companyId, status) => api.put(`/company/kyc/status/${companyId}`, { status }),
+  
+  // 多公司架构支持
+  getCurrentCompany: () => api.get('/company/current'),
+  getSubsidiaries: (parentId) => api.get(`/company/${parentId}/subsidiaries`),
+  registerSubsidiary: (data) => api.post('/company/subsidiary', data),
+  updateSubsidiary: (companyId, data) => api.put(`/company/${companyId}`, data),
+  deleteSubsidiary: (companyId) => api.delete(`/company/${companyId}`),
+  getConsolidatedBalance: (parentId, token) => 
+    api.get(`/company/${parentId}/consolidated-balance?token=${token}`),
+  configureSubsidiary: (companyId, config) => 
+    api.patch(`/company/${companyId}/config`, config),
+  
+  // 内部转账
+  internalTransfer: (data) => api.post('/payment/internal-transfer', data),
+  getInternalTransfers: (companyId) => api.get(`/payment/internal-transfers?companyId=${companyId}`),
+  
+  // 公司设置
+  getCompanySettings: (companyId) => api.get(`/company/${companyId}/settings`),
+  updateCompanySettings: (companyId, settings) => api.put(`/company/${companyId}/settings`, settings),
 };
 
 export const kycAPI = {
@@ -155,4 +175,27 @@ export const settingsAPI = {
   
   // Change admin password
   changePassword: (data) => api.put('/settings/password', data),
+};
+
+export const subsidiaryAPI = {
+  // Get all companies
+  getCompanies: () => api.get('/company'),
+  
+  // Get subsidiaries of a parent company
+  getSubsidiaries: (parentCompanyId) => api.get(`/company/${parentCompanyId}/subsidiaries`),
+  
+  // Get consolidated balance
+  getConsolidatedBalance: (parentCompanyId) => api.get(`/company/${parentCompanyId}/consolidated-balance`),
+  
+  // Create subsidiary
+  createSubsidiary: (data) => api.post('/company/subsidiary', data),
+  
+  // Update company transfer config
+  updateTransferConfig: (companyId, data) => api.put(`/company/${companyId}/transfer-config`, data),
+  
+  // Get company details
+  getCompany: (companyId) => api.get(`/company/${companyId}`),
+  
+  // Get company transactions
+  getCompanyTransactions: (companyId) => api.get(`/company/${companyId}/transactions`),
 }; 

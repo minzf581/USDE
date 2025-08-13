@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoadingSpinner } from './components/LoadingSpinner';
 
@@ -17,6 +18,8 @@ import Admin from './pages/Admin';
 import EnterpriseUsers from './pages/EnterpriseUsers';
 import Settings from './pages/Settings';
 import TestMenu from './pages/TestMenu';
+import Subsidiaries from './pages/Subsidiaries';
+import SubsidiaryDashboard from './components/subsidiary/SubsidiaryDashboard';
 
 // Layout
 import Layout from './components/Layout';
@@ -39,35 +42,39 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="App min-h-screen bg-secondary-light">
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          {/* Protected routes */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="stakes" element={<Stakes />} />
-            <Route path="deposits" element={<Deposits />} />
-            <Route path="withdrawals" element={<Withdrawals />} />
-            <Route path="kyc" element={<KYCPage />} />
-            <Route path="admin" element={<Admin />} />
-            <Route path="enterprise/users" element={<EnterpriseUsers />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="test-menu" element={<TestMenu />} />
-          </Route>
-          
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </div>
+      <CompanyProvider>
+        <div className="App min-h-screen bg-secondary-light">
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="payments" element={<Payments />} />
+              <Route path="stakes" element={<Stakes />} />
+              <Route path="deposits" element={<Deposits />} />
+              <Route path="withdrawals" element={<Withdrawals />} />
+              <Route path="kyc" element={<KYCPage />} />
+              <Route path="admin" element={<Admin />} />
+              <Route path="enterprise/users" element={<EnterpriseUsers />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="test-menu" element={<TestMenu />} />
+              <Route path="subsidiaries" element={<Subsidiaries />} />
+              <Route path="subsidiary/:id/dashboard" element={<SubsidiaryDashboard />} />
+            </Route>
+            
+            {/* Catch all */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
+      </CompanyProvider>
     </AuthProvider>
   );
 }

@@ -183,17 +183,18 @@ const Admin = () => {
     }
   };
 
-  const handleUpdateUser = async (userId, updateData) => {
-    try {
-      await adminAPI.updateUser(userId, updateData);
-      setShowUserModal(false);
-      setSelectedUser(null);
-      fetchUsers(); // 刷新用户列表
-    } catch (error) {
-      console.error('Error updating user:', error);
-      setError('Failed to update user');
-    }
-  };
+  // 暂时注释掉未使用的函数，后续可能需要
+  // const handleUpdateUser = async (userId, updateData) => {
+  //   try {
+  //     await adminAPI.updateUser(userId, updateData);
+  //     setShowUserModal(false);
+  //     setSelectedUser(null);
+  //     fetchUsers(); // 刷新用户列表
+  //   } catch (error) {
+  //     console.error('Error updating user:', error);
+  //     setError('Failed to update user');
+  //   }
+  // };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {

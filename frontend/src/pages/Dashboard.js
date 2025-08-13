@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dashboardAPI } from '../services/api';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCompany } from '../contexts/CompanyContext';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -15,9 +16,12 @@ import {
   Shield
 } from 'lucide-react';
 import { LoadingSpinner } from '../components/LoadingSpinner';
+import CompanySelector from '../components/CompanySelector';
+import ConsolidatedBalanceDashboard from '../components/ConsolidatedBalanceDashboard';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { isParentCompany, currentCompany } = useCompany();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -144,13 +148,19 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-secondary-dark">Dashboard</h1>
-          <p className="text-secondary-dark/70">Welcome back, {company?.name}</p>
+          <p className="text-secondary-dark/70">Welcome back, {company?.name || currentCompany?.name}</p>
         </div>
-        <div className={`px-3 py-1 rounded-full flex items-center space-x-2 ${getKYCStatusColor(company?.kycStatus)}`}>
-          {getKYCStatusIcon(company?.kycStatus)}
-          <span className="text-sm font-medium capitalize">{company?.kycStatus}</span>
+        <div className={`px-3 py-1 rounded-full flex items-center space-x-2 ${getKYCStatusColor(company?.kycStatus || currentCompany?.kycStatus)}`}>
+          {getKYCStatusIcon(company?.kycStatus || currentCompany?.kycStatus)}
+          <span className="text-sm font-medium capitalize">{company?.kycStatus || currentCompany?.kycStatus}</span>
         </div>
       </div>
+
+      {/* Company Selector for Parent Company Admins */}
+      <CompanySelector />
+
+      {/* Consolidated Balance Dashboard for Parent Companies */}
+      {isParentCompany && <ConsolidatedBalanceDashboard />}
 
       {/* Approval Section - Prominent Display - Only for users with approval permissions */}
       {hasApprovalPermissions && approvals.length > 0 && (
