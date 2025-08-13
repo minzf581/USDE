@@ -32,6 +32,16 @@ async function initUsersOnStartup() {
       console.log('✅ 管理员用户创建成功');
     } else {
       console.log('✅ 管理员用户已存在');
+      
+      // 检查并更新角色（如果需要）
+      if (adminUser.role !== 'admin') {
+        console.log('🔄 更新管理员用户角色...');
+        await prisma.company.update({
+          where: { email: 'admin@usde.com' },
+          data: { role: 'admin' }
+        });
+        console.log('✅ 管理员用户角色更新成功');
+      }
     }
     
     // 检查是否有demo企业用户
