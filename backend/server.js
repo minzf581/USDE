@@ -21,6 +21,7 @@ const treasuryRoutes = require('./routes/treasury');
 const enterpriseRoutes = require('./routes/enterprise');
 const settingsRoutes = require('./routes/settings');
 const bankAccountRoutes = require('./routes/bankAccount');
+const healthRoutes = require('./routes/health');
 const { calculateDailyEarnings } = require('./services/earningService');
 const paymentService = require('./services/paymentService');
 
@@ -131,24 +132,42 @@ app.get('/api/health', async (req, res) => {
   let overall = 'healthy';
   
   try {
-    // 数据库检查
+    // 数据库检查 - 使用现有的Prisma实例
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
-    await prisma.$queryRaw`SELECT 1`;
-    checks.database = 'healthy';
+    
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      checks.database = 'healthy';
+      console.log('✅ Health check: Database connection successful');
+    } catch (dbError) {
+      console.error('❌ Health check: Database connection failed:', dbError.message);
+      checks.database = 'unhealthy';
+      overall = 'unhealthy';
+    } finally {
+      await prisma.$disconnect();
+    }
   } catch (error) {
+    console.error('❌ Health check: Prisma client creation failed:', error.message);
     checks.database = 'unhealthy';
     overall = 'unhealthy';
   }
   
-  try {
-    // Stripe连接检查
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    await stripe.paymentMethods.list({ limit: 1 });
-    checks.stripe = 'healthy';
-  } catch (error) {
-    checks.stripe = 'unhealthy';
-    overall = 'degraded';
+  // Stripe连接检查 - 只在有密钥时进行
+  if (process.env.STRIPE_SECRET_KEY) {
+    try {
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      await stripe.paymentMethods.list({ limit: 1 });
+      checks.stripe = 'healthy';
+      console.log('✅ Health check: Stripe connection successful');
+    } catch (error) {
+      console.warn('⚠️ Health check: Stripe connection failed:', error.message);
+      checks.stripe = 'unhealthy';
+      if (overall === 'healthy') overall = 'degraded';
+    }
+  } else {
+    checks.stripe = 'not_configured';
+    console.log('ℹ️ Health check: Stripe not configured');
   }
   
   // 内存使用检查
@@ -159,12 +178,23 @@ app.get('/api/health', async (req, res) => {
     usage: `${memUsageMB}MB`
   };
   
-  res.status(overall === 'healthy' ? 200 : 503).json({
+  // 系统信息
+  checks.system = {
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    uptime: Math.round(process.uptime())
+  };
+  
+  const statusCode = overall === 'healthy' ? 200 : 503;
+  console.log(`🏥 Health check result: ${overall} (${statusCode})`);
+  
+  res.status(statusCode).json({
     status: overall,
     timestamp: new Date().toISOString(),
     service: 'usde-api',
     version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.RAILWAY_ENVIRONMENT || 'development',
+    environment: process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV || 'development',
     uptime: process.uptime(),
     checks
   });
@@ -206,6 +236,7 @@ app.use('/api/treasury', treasuryRoutes);
 app.use('/api/enterprise', enterpriseRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/bank-account', bankAccountRoutes);
+app.use('/api/health', healthRoutes);
 
 // 增强错误处理中间件
 app.use((err, req, res, next) => {

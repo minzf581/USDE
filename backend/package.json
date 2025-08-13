@@ -19,7 +19,8 @@
     "performance-check": "node scripts/performance-check.js",
     "railway:check": "node check-railway-deployment.js",
     "railway:deploy": "chmod +x railway-start.sh && ./railway-start.sh",
-    "test:postgresql": "node test-postgresql-connection.js"
+    "test:postgresql": "node test-postgresql-connection.js",
+    "test:health": "node test-health-endpoints.js"
   },
   "dependencies": {
     "express": "^4.18.2",
