@@ -138,6 +138,9 @@ model Company {
   withdrawals Withdrawal[]
   kycRequests KYC[]
   bankAccounts BankAccount[]
+  
+  // Approval relations
+  approvals Approval[]
 }
 
 model User {
