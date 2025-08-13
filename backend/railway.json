@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "chmod +x railway-start.sh && ./railway-start.sh",
+    "startCommand": "chmod +x railway-preflight.sh && ./railway-preflight.sh && npm start",
     "healthcheckPath": "/api/health/ping",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
