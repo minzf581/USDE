@@ -9,17 +9,20 @@ const router = express.Router();
 // Middleware to check if user is enterprise admin
 const requireEnterpriseAdmin = async (req, res, next) => {
   try {
-    const userId = req.company.companyId;
-    const user = await prisma.company.findUnique({
-      where: { id: userId }
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
+    // 直接从req.company获取用户信息，因为verifyToken已经验证过了
+    const userRole = req.company.role;
+    
     // 系统管理员和企业管理员都可以访问
-    if (user.role === 'admin' || user.isEnterpriseAdmin) {
+    if (userRole === 'admin' || userRole === 'enterprise_admin') {
+      // 获取完整的用户信息
+      const user = await prisma.company.findUnique({
+        where: { id: req.company.companyId }
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
       req.enterpriseAdmin = user;
       return next();
     }
@@ -36,22 +39,21 @@ router.get('/users', verifyToken, requireEnterpriseAdmin, async (req, res) => {
   try {
     const enterpriseAdmin = req.enterpriseAdmin;
     
-    // 获取企业用户 - 包括企业管理员自己和所有子用户
+    // 获取企业用户 - 目前只返回企业管理员自己，因为我们的模型中没有子公司关系
     const users = await prisma.company.findMany({
       where: {
-        OR: [
-          { id: enterpriseAdmin.id }, // 企业管理员自己
-          { enterpriseId: enterpriseAdmin.id } // 子用户
-        ]
+        id: enterpriseAdmin.id // 暂时只返回企业管理员自己
       },
       select: {
         id: true,
         name: true,
         email: true,
         kycStatus: true,
-        isActive: true,
         role: true,
-        enterpriseRole: true,
+        type: true,
+        status: true,
+        balance: true,
+        usdeBalance: true,
         createdAt: true,
         updatedAt: true
       },

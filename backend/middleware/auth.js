@@ -25,6 +25,7 @@ const verifyToken = async (req, res, next) => {
       companyId: user.id,
       email: user.email,
       type: user.type,
+      role: user.role,
       kycStatus: user.kycStatus,
       status: user.status
     };
