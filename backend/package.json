@@ -16,7 +16,10 @@
     "db:init-basic": "node init-basic-db.js",
     "db:upgrade-subsidiary": "node upgrade-subsidiary-support.js",
     "db:test-subsidiary": "node test-subsidiary-features.js",
-    "performance-check": "node scripts/performance-check.js"
+    "performance-check": "node scripts/performance-check.js",
+    "railway:check": "node check-railway-deployment.js",
+    "railway:deploy": "chmod +x railway-start.sh && ./railway-start.sh",
+    "test:postgresql": "node test-postgresql-connection.js"
   },
   "dependencies": {
     "express": "^4.18.2",
