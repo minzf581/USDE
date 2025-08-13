@@ -9,6 +9,16 @@ const requirePermission = (permission) => {
   return async (req, res, next) => {
     try {
       const userId = req.company.companyId;
+      const user = await prisma.company.findUnique({
+        where: { id: userId }
+      });
+
+      // 系统管理员和企业管理员拥有所有权限
+      if (user.role === 'admin' || user.isEnterpriseAdmin) {
+        return next();
+      }
+
+      // 检查用户角色权限
       const userRole = await prisma.userRole.findFirst({
         where: { userId },
         include: {
@@ -25,6 +35,7 @@ const requirePermission = (permission) => {
       }
       next();
     } catch (error) {
+      console.error('Permission check error:', error);
       res.status(500).json({ error: 'Permission check failed' });
     }
   };

@@ -26,3 +26,6 @@ sqlite3 prisma/data/dev.db < migration_001_risk_enhancements.sql
 
 echo "✅ Migration completed successfully!"
 echo "🚀 You can now start the server with: npm start"
+
+
+

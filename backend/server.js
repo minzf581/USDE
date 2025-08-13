@@ -5,6 +5,9 @@ const rateLimit = require('express-rate-limit');
 const responseTime = require('./middleware/responseTime');
 require('dotenv').config();
 
+// 设置正确的数据库URL
+process.env.DATABASE_URL = process.env.DATABASE_URL || "file:./prisma/data/app.db";
+
 const { router: authRoutes } = require('./routes/auth');
 const companyRoutes = require('./routes/company');
 const kycRoutes = require('./routes/kyc');
@@ -17,6 +20,7 @@ const adminRoutes = require('./routes/admin');
 const treasuryRoutes = require('./routes/treasury');
 const enterpriseRoutes = require('./routes/enterprise');
 const settingsRoutes = require('./routes/settings');
+const bankAccountRoutes = require('./routes/bankAccount');
 const { calculateDailyEarnings } = require('./services/earningService');
 const paymentService = require('./services/paymentService');
 
@@ -61,7 +65,13 @@ app.use(responseTime);
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use('/api/', limiter);
 
@@ -195,6 +205,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/treasury', treasuryRoutes);
 app.use('/api/enterprise', enterpriseRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/bank-account', bankAccountRoutes);
 
 // 增强错误处理中间件
 app.use((err, req, res, next) => {

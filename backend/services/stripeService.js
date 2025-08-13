@@ -5,17 +5,49 @@ const prisma = require('../lib/prisma');
 
 class StripeService {
   // Create checkout session for deposit
-  static async createCheckoutSession(amount, companyId, successUrl, cancelUrl) {
+  static async createCheckoutSession(amount, companyId, successUrl, cancelUrl, orderId = null, paymentMethod = 'card') {
     try {
+      console.log(`[STRIPE] Creating checkout session:`, {
+        amount,
+        companyId,
+        orderId,
+        paymentMethod
+      });
+
+      // 根据支付方式设置不同的支付方法类型
+      let paymentMethodTypes = ['card'];
+      let paymentMethodOptions = {};
+      
+      if (paymentMethod === 'bank_transfer') {
+        paymentMethodTypes = ['us_bank_account'];
+        paymentMethodOptions = {
+          us_bank_account: {
+            financial_connections: {
+              permissions: ['payment_method', 'balances'],
+            },
+          },
+        };
+      } else if (paymentMethod === 'ach') {
+        paymentMethodTypes = ['us_bank_account'];
+        paymentMethodOptions = {
+          us_bank_account: {
+            financial_connections: {
+              permissions: ['payment_method', 'balances'],
+            },
+          },
+        };
+      }
+
       const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
+        payment_method_types: paymentMethodTypes,
+        payment_method_options: paymentMethodOptions,
         line_items: [
           {
             price_data: {
               currency: 'usd',
               product_data: {
                 name: 'USDE Stablecoin Deposit',
-                description: `Deposit $${amount} to mint ${amount} USDE tokens`,
+                description: `Deposit $${amount} to mint ${(amount * 0.9975).toFixed(2)} USDE tokens (0.25% fee)`,
               },
               unit_amount: Math.round(amount * 100), // Convert to cents
             },
@@ -28,22 +60,35 @@ class StripeService {
         metadata: {
           companyId,
           amount: amount.toString(),
+          orderId: orderId || '',
+          usdeAmount: (amount * 0.9975).toFixed(2), // 计算USDE金额
+          paymentMethod,
+          fee: (amount * 0.0025).toFixed(2) // 手续费
         },
       });
 
-      // Create deposit record
-      await prisma.deposit.create({
-        data: {
-          companyId,
-          amount,
-          stripeSessionId: session.id,
-          status: 'pending',
-        },
+      console.log(`[STRIPE] Created session:`, {
+        sessionId: session.id,
+        url: session.url,
+        paymentMethodTypes,
+        metadata: session.metadata
       });
+
+      // 只有在没有提供订单ID时才创建deposit记录
+      if (!orderId) {
+        await prisma.deposit.create({
+          data: {
+            companyId,
+            amount,
+            stripeSessionId: session.id,
+            status: 'pending',
+          },
+        });
+      }
 
       return session;
     } catch (error) {
-      console.error('Stripe session creation error:', error);
+      console.error('[STRIPE] Session creation error:', error);
       throw error;
     }
   }

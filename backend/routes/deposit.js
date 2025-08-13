@@ -90,18 +90,55 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     const { amount, paymentMethod = 'card' } = req.body;
     const companyId = req.company.companyId;
     
+    console.log(`[API] POST /create-session - Company ID: ${companyId}, Amount: ${amount}, Payment Method: ${paymentMethod}`);
+    
     // 输入验证增强
     if (!amount || amount < 1 || amount > 1000000) {
+      console.log(`[API] ERROR: Invalid amount - ${amount}`);
       return res.status(400).json({
         success: false,
         error: 'Invalid amount. Must be between $1 and $1,000,000'
       });
     }
     
+    // 检查用户KYC状态
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        kycStatus: true,
+        usdeBalance: true
+      }
+    });
+    
+    console.log(`[API] Company KYC status: ${company?.kycStatus}`);
+    
+    if (!company) {
+      console.log(`[API] ERROR: Company not found for ID: ${companyId}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found'
+      });
+    }
+    
+    if (company.kycStatus !== 'approved') {
+      console.log(`[API] ERROR: KYC not approved - Status: ${company.kycStatus}`);
+      return res.status(403).json({
+        success: false,
+        error: 'KYC verification required before depositing'
+      });
+    }
+    
     // 风控评估
     const riskAssessment = await assessRisk(companyId, amount, paymentMethod);
     
+    console.log(`[API] Risk assessment:`, {
+      score: riskAssessment.riskScore,
+      decision: riskAssessment.decision,
+      factors: riskAssessment.factors
+    });
+    
     if (riskAssessment.decision === 'rejected') {
+      console.log(`[API] ERROR: Transaction rejected due to risk assessment`);
       return res.status(403).json({
         success: false,
         error: 'Transaction rejected due to risk assessment',
@@ -114,6 +151,13 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     const fee = amount * feeRate;
     const usdeAmount = amount - fee;
     
+    console.log(`[API] Fee calculation:`, {
+      amount,
+      feeRate,
+      fee,
+      usdeAmount
+    });
+    
     // 创建订单记录（增强版）
     const order = await prisma.deposit.create({
       data: {
@@ -123,21 +167,39 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
         feeRate,
         usdeAmount,
         paymentMethod,
-        status: 'CREATED',
-        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2小时过期
+        status: 'CREATED'
       }
+    });
+    
+    console.log(`[API] Order created:`, {
+      orderId: order.id,
+      status: order.status,
+      amount: order.amount,
+      fee: order.fee,
+      usdeAmount: order.usdeAmount,
+      paymentMethod: order.paymentMethod
     });
     
     // 创建Stripe会话（保持原有逻辑）
     const successUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/deposits?success=true`;
     const cancelUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/deposits?canceled=true`;
     
+    console.log(`[API] Creating Stripe session with payment method: ${paymentMethod}`);
+    
     const session = await StripeService.createCheckoutSession(
       amount,
       companyId,
       successUrl,
-      cancelUrl
+      cancelUrl,
+      order.id, // 传递订单ID
+      paymentMethod // 传递支付方式
     );
+    
+    console.log(`[API] Stripe session created:`, {
+      sessionId: session.id,
+      url: session.url,
+      paymentMethod: paymentMethod
+    });
     
     // 更新订单的Stripe会话ID
     await prisma.deposit.update({
@@ -151,7 +213,7 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     // 增加指标
     simpleMetrics.incrementDeposits();
     
-    res.json({
+    const response = {
       success: true,
       data: {
         sessionId: session.id,
@@ -168,14 +230,25 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
           requiresReview: riskAssessment.decision === 'manual_review'
         }
       }
-    });
+    };
+    
+    console.log(`[API] Response sent successfully`);
+    
+    res.json(response);
     
   } catch (error) {
-    console.error('Create session error:', error);
+    console.error('[API] Error in /create-session:', error);
+    console.error('[API] Error stack:', error.stack);
+    console.error('[API] Error details:', {
+      message: error.message,
+      code: error.code,
+      type: error.type
+    });
     simpleMetrics.incrementErrors();
     res.status(500).json({
       success: false,
-      error: 'Failed to create payment session'
+      error: 'Failed to create payment session',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -186,9 +259,11 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
   let event;
 
   try {
+    console.log(`[WEBHOOK] Received webhook event`);
     event = StripeService.verifyWebhook(req.body, sig);
+    console.log(`[WEBHOOK] Event type: ${event.type}`);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    console.error('[WEBHOOK] Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -196,9 +271,19 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
     const session = event.data.object;
     const { companyId, orderId, usdeAmount } = session.metadata;
     
+    console.log(`[WEBHOOK] Processing completed session:`, {
+      sessionId: session.id,
+      companyId,
+      orderId,
+      usdeAmount,
+      paymentIntent: session.payment_intent
+    });
+    
     try {
       // 使用事务确保数据一致性
       await prisma.$transaction(async (tx) => {
+        console.log(`[WEBHOOK] Starting transaction for order: ${orderId}`);
+        
         // 更新订单状态
         const order = await tx.deposit.update({
           where: { id: orderId },
@@ -209,27 +294,44 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
           }
         });
         
+        console.log(`[WEBHOOK] Updated deposit order:`, {
+          orderId: order.id,
+          status: order.status,
+          amount: order.amount
+        });
+        
         // 更新USDE余额
         const currentBalance = await tx.company.findUnique({
           where: { id: companyId },
           select: { usdeBalance: true }
         });
         
+        console.log(`[WEBHOOK] Current balance for company ${companyId}:`, currentBalance?.usdeBalance || 0);
+        
+        const newBalance = (currentBalance?.usdeBalance || 0) + parseFloat(usdeAmount);
+        
         await tx.company.update({
           where: { id: companyId },
           data: {
-            usdeBalance: (currentBalance.usdeBalance || 0) + parseFloat(usdeAmount)
+            usdeBalance: newBalance
           }
         });
         
+        console.log(`[WEBHOOK] Updated company balance:`, {
+          companyId,
+          oldBalance: currentBalance?.usdeBalance || 0,
+          addedAmount: parseFloat(usdeAmount),
+          newBalance
+        });
+        
         // 记录交易历史（增强版）
-        await tx.uSDETransaction.create({
+        const transaction = await tx.uSDETransaction.create({
           data: {
             companyId,
             type: 'mint',
             amount: parseFloat(usdeAmount),
-            balanceBefore: currentBalance.usdeBalance || 0,
-            balanceAfter: (currentBalance.usdeBalance || 0) + parseFloat(usdeAmount),
+            balanceBefore: currentBalance?.usdeBalance || 0,
+            balanceAfter: newBalance,
             description: `Minted ${usdeAmount} USDE from $${order.amount} deposit`,
             metadata: JSON.stringify({
               orderId: order.id,
@@ -240,12 +342,21 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
             status: 'confirmed'
           }
         });
+        
+        console.log(`[WEBHOOK] Created transaction record:`, {
+          transactionId: transaction.id,
+          type: transaction.type,
+          amount: transaction.amount,
+          balanceBefore: transaction.balanceBefore,
+          balanceAfter: transaction.balanceAfter
+        });
       });
       
-      console.log(`✅ Successfully processed deposit for company ${companyId}`);
+      console.log(`✅ [WEBHOOK] Successfully processed deposit for company ${companyId}`);
       
     } catch (error) {
-      console.error('Error processing webhook:', error);
+      console.error('[WEBHOOK] Error processing webhook:', error);
+      console.error('[WEBHOOK] Error stack:', error.stack);
       // 这里可以添加重试机制或错误通知
     }
   }
@@ -259,20 +370,25 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
     const companyId = req.company.companyId;
     const { page = 1, limit = 10, type = 'all' } = req.query;
     
+    console.log(`[API] GET /usde-balance - Company ID: ${companyId}`);
+    console.log(`[API] Request query params:`, { page, limit, type });
+    
     // 获取公司信息和余额
     const company = await prisma.company.findUnique({
       where: { id: companyId },
       select: {
         usdeBalance: true,
-        kycStatus: true,
-        kycLevel: true,
-        dailyLimit: true,
-        monthlyLimit: true,
-        riskRating: true
+        kycStatus: true
       }
     });
     
+    console.log(`[API] Company data from database:`, {
+      usdeBalance: company?.usdeBalance,
+      kycStatus: company?.kycStatus
+    });
+    
     if (!company) {
+      console.log(`[API] ERROR: Company not found for ID: ${companyId}`);
       return res.status(404).json({
         success: false,
         error: 'Company not found'
@@ -296,6 +412,8 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
       prisma.uSDETransaction.count({ where: whereClause })
     ]);
     
+    console.log(`[API] Transactions found: ${transactions.length}, Total: ${totalCount}`);
+    
     // 计算统计数据
     const [depositStats, withdrawStats, todayStats] = await Promise.all([
       prisma.uSDETransaction.aggregate({
@@ -312,7 +430,7 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
         where: {
           companyId,
           status: 'COMPLETED',
-          createdAt: {
+          timestamp: {
             gte: new Date(new Date().setHours(0, 0, 0, 0))
           }
         },
@@ -326,14 +444,14 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
       where: {
         companyId,
         status: 'COMPLETED',
-        createdAt: {
+        timestamp: {
           gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         }
       },
       _sum: { amount: true }
     });
     
-    res.json({
+    const response = {
       success: true,
       data: {
         balance: {
@@ -342,51 +460,50 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
           total: company.usdeBalance || 0
         },
         kycStatus: company.kycStatus,
-        kycLevel: company.kycLevel || 1,
         limits: {
           daily: {
-            limit: company.dailyLimit || 10000,
+            limit: 10000, // 默认限额
             used: todayUsed,
-            remaining: (company.dailyLimit || 10000) - todayUsed
+            remaining: 10000 - todayUsed
           },
           monthly: {
-            limit: company.monthlyLimit || 100000,
+            limit: 100000, // 默认限额
             used: monthlyUsed._sum.amount || 0,
-            remaining: (company.monthlyLimit || 100000) - (monthlyUsed._sum.amount || 0)
+            remaining: 100000 - (monthlyUsed._sum.amount || 0)
           }
         },
-        statistics: {
-          totalDeposited: depositStats._sum.amount || 0,
-          totalWithdrawn: withdrawStats._sum.amount || 0,
-          depositCount: depositStats._count || 0,
-          withdrawCount: withdrawStats._count || 0,
-          riskRating: company.riskRating || 'medium'
-        },
-        transactions: transactions.map(tx => ({
-          id: tx.id,
-          type: tx.type,
-          amount: tx.amount,
-          balanceBefore: tx.balanceBefore,
-          balanceAfter: tx.balanceAfter,
-          description: tx.description,
-          status: tx.status || 'confirmed',
-          blockchainTxHash: tx.blockchainTxHash,
-          timestamp: tx.timestamp
+        transactions: transactions.map(t => ({
+          id: t.id,
+          type: t.type,
+          amount: t.amount,
+          description: t.description,
+          timestamp: t.timestamp,
+          balanceAfter: t.balanceAfter
         })),
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: totalCount,
-          pages: Math.ceil(totalCount / parseInt(limit))
+        stats: {
+          totalDeposits: depositStats._sum.amount || 0,
+          totalWithdrawals: withdrawStats._sum.amount || 0,
+          depositCount: depositStats._count.id || 0,
+          withdrawalCount: withdrawStats._count.id || 0
         }
       }
+    };
+    
+    console.log(`[API] Response data:`, {
+      success: true,
+      kycStatus: response.data.kycStatus,
+      balance: response.data.balance.available,
+      dailyRemaining: response.data.limits.daily.remaining,
+      monthlyRemaining: response.data.limits.monthly.remaining
     });
     
+    res.json(response);
+    
   } catch (error) {
-    console.error('Get USDE balance error:', error);
+    console.error('[API] Error in /usde-balance:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get balance information'
+      error: 'Failed to fetch USDE balance'
     });
   }
 });

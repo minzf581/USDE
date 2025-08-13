@@ -13,6 +13,9 @@
     "db:seed": "node prisma/seed.js",
     "db:seed-users": "node prisma/seed-users.js",
     "db:migrate-risk": "node migration_001_risk_enhancements.sql",
+    "db:init-basic": "node init-basic-db.js",
+    "db:upgrade-subsidiary": "node upgrade-subsidiary-support.js",
+    "db:test-subsidiary": "node test-subsidiary-features.js",
     "performance-check": "node scripts/performance-check.js"
   },
   "dependencies": {

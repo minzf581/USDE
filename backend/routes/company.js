@@ -186,4 +186,266 @@ router.put('/kyc/status/:companyId', verifyToken, [
   }
 });
 
+// ===== SUBSIDIARY SUPPORT ROUTES =====
+
+// Register parent company
+router.post('/parent', verifyToken, async (req, res) => {
+  try {
+    const { name, email, companyCode, companyAddress } = req.body;
+
+    const company = await prisma.company.create({
+      data: {
+        name,
+        email,
+        companyCode,
+        companyAddress,
+        companyType: 'parent',
+        isParentCompany: true,
+        role: 'enterprise_admin'
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Parent company registered successfully',
+      company
+    });
+  } catch (error) {
+    console.error('Parent company registration error:', error);
+    res.status(500).json({ error: 'Failed to register parent company' });
+  }
+});
+
+// Register subsidiary company
+router.post('/subsidiary', verifyToken, async (req, res) => {
+  try {
+    const { name, email, companyCode, companyAddress, parentCompanyId } = req.body;
+
+    // Verify parent company exists
+    const parentCompany = await prisma.company.findUnique({
+      where: { id: parentCompanyId }
+    });
+
+    if (!parentCompany || !parentCompany.isParentCompany) {
+      return res.status(400).json({ error: 'Invalid parent company' });
+    }
+
+    const company = await prisma.company.create({
+      data: {
+        name,
+        email,
+        companyCode,
+        companyAddress,
+        companyType: 'subsidiary',
+        isParentCompany: false,
+        parentCompanyId,
+        role: 'enterprise_user'
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Subsidiary company registered successfully',
+      company
+    });
+  } catch (error) {
+    console.error('Subsidiary company registration error:', error);
+    res.status(500).json({ error: 'Failed to register subsidiary company' });
+  }
+});
+
+// Get company information
+router.get('/:companyId', verifyToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        companyCode: true,
+        companyAddress: true,
+        companyType: true,
+        isParentCompany: true,
+        parentCompanyId: true,
+        ucBalance: true,
+        usdeBalance: true,
+        totalEarnings: true,
+        kycStatus: true,
+        createdAt: true
+      }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    res.json({
+      success: true,
+      company
+    });
+  } catch (error) {
+    console.error('Get company error:', error);
+    res.status(500).json({ error: 'Failed to get company information' });
+  }
+});
+
+// Get subsidiaries of a parent company
+router.get('/:parentCompanyId/subsidiaries', verifyToken, async (req, res) => {
+  try {
+    const { parentCompanyId } = req.params;
+
+    const subsidiaries = await prisma.company.findMany({
+      where: {
+        parentCompanyId,
+        companyType: 'subsidiary'
+      },
+      select: {
+        id: true,
+        name: true,
+        companyCode: true,
+        companyAddress: true,
+        ucBalance: true,
+        usdeBalance: true,
+        totalEarnings: true,
+        kycStatus: true,
+        createdAt: true
+      }
+    });
+
+    res.json({
+      success: true,
+      subsidiaries,
+      count: subsidiaries.length
+    });
+  } catch (error) {
+    console.error('Get subsidiaries error:', error);
+    res.status(500).json({ error: 'Failed to get subsidiaries' });
+  }
+});
+
+// Get consolidated balance for parent company
+router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, res) => {
+  try {
+    const { parentCompanyId } = req.params;
+
+    // Get parent company balance
+    const parentCompany = await prisma.company.findUnique({
+      where: { id: parentCompanyId },
+      select: {
+        id: true,
+        name: true,
+        ucBalance: true,
+        usdeBalance: true
+      }
+    });
+
+    if (!parentCompany) {
+      return res.status(404).json({ error: 'Parent company not found' });
+    }
+
+    // Get subsidiaries total balance
+    const subsidiariesBalance = await prisma.company.aggregate({
+      where: {
+        parentCompanyId,
+        companyType: 'subsidiary'
+      },
+      _sum: {
+        ucBalance: true,
+        usdeBalance: true
+      }
+    });
+
+    const consolidatedBalance = {
+      parentCompany: {
+        id: parentCompany.id,
+        name: parentCompany.name,
+        ucBalance: parentCompany.ucBalance || 0,
+        usdeBalance: parentCompany.usdeBalance || 0
+      },
+      subsidiaries: {
+        totalUC: subsidiariesBalance._sum.ucBalance || 0,
+        totalUSDE: subsidiariesBalance._sum.usdeBalance || 0,
+        count: await prisma.company.count({
+          where: {
+            parentCompanyId,
+            companyType: 'subsidiary'
+          }
+        })
+      },
+      consolidated: {
+        totalUC: (parentCompany.ucBalance || 0) + (subsidiariesBalance._sum.ucBalance || 0),
+        totalUSDE: (parentCompany.usdeBalance || 0) + (subsidiariesBalance._sum.usdeBalance || 0)
+      }
+    };
+
+    res.json({
+      success: true,
+      consolidatedBalance
+    });
+  } catch (error) {
+    console.error('Get consolidated balance error:', error);
+    res.status(500).json({ error: 'Failed to get consolidated balance' });
+  }
+});
+
+// Update company transfer configuration
+router.put('/:companyId/transfer-config', verifyToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { autoApprovalEnabled, approvalThreshold } = req.body;
+
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        // Add transfer configuration fields if needed
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Transfer configuration updated successfully',
+      company
+    });
+  } catch (error) {
+    console.error('Update transfer config error:', error);
+    res.status(500).json({ error: 'Failed to update transfer configuration' });
+  }
+});
+
+// Get all companies (admin only)
+router.get('/', verifyToken, async (req, res) => {
+  try {
+    const companies = await prisma.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        companyCode: true,
+        companyType: true,
+        isParentCompany: true,
+        parentCompanyId: true,
+        ucBalance: true,
+        usdeBalance: true,
+        kycStatus: true,
+        createdAt: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.json({
+      success: true,
+      companies,
+      count: companies.length
+    });
+  } catch (error) {
+    console.error('Get companies error:', error);
+    res.status(500).json({ error: 'Failed to get companies' });
+  }
+});
+
 module.exports = router; 

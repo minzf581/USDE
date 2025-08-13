@@ -47,6 +47,9 @@ const Deposits = () => {
         depositAPI.getStats()
       ]);
 
+      console.log('🔍 USDE API响应:', usdeResponse);
+      console.log('🔍 Stats API响应:', statsResponse);
+
       setUsdeData(usdeResponse.data);
       setStats(statsResponse.data.summary);
     } catch (error) {
@@ -77,7 +80,8 @@ const Deposits = () => {
       setLoading(true);
       
       // 检查KYC状态
-      if (usdeData?.kycStatus !== 'approved') {
+      const kycStatus = usdeData?.data?.kycStatus || usdeData?.kycStatus;
+      if (kycStatus !== 'approved') {
         toast.error('Please complete KYC verification before depositing.');
         return;
       }
@@ -89,8 +93,8 @@ const Deposits = () => {
       }
       
       // 检查限额
-      if (usdeData?.limits?.daily?.remaining && amount > usdeData.limits.daily.remaining) {
-        toast.error(`Amount exceeds daily limit. Remaining: $${usdeData.limits.daily.remaining.toFixed(2)}`);
+      if (usdeData?.data?.limits?.daily?.remaining && amount > usdeData.data.limits.daily.remaining) {
+        toast.error(`Amount exceeds daily limit. Remaining: $${usdeData.data.limits.daily.remaining.toFixed(2)}`);
         return;
       }
 
@@ -262,7 +266,7 @@ const Deposits = () => {
               <h2 className="text-2xl font-bold mb-2">USDE Balance</h2>
               <p className="text-3xl font-bold">{formatCurrency(usdeData.data?.balance?.available || usdeData.balance)}</p>
               <p className="text-primary-light mt-2">
-                {usdeData.data?.kycStatus === 'approved' || usdeData.kycStatus === 'approved' ? 'Ready to trade' : 'Complete KYC to start trading'}
+                {(usdeData?.data?.kycStatus === 'approved' || usdeData?.kycStatus === 'approved') ? 'Ready to trade' : 'Complete KYC to start trading'}
               </p>
             </div>
             <Wallet className="w-16 h-16 text-primary-light" />
@@ -304,7 +308,7 @@ const Deposits = () => {
       <OrderStatusDisplay orderStatus={orderStatus} />
 
       {/* KYC Warning */}
-      {usdeData && usdeData.kycStatus !== 'approved' && (
+      {usdeData && (usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved') && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
@@ -374,7 +378,7 @@ const Deposits = () => {
                 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter amount"
-                disabled={usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved'}
+                disabled={(usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved')}
                 required
               />
               {errors.amount && (
@@ -405,8 +409,15 @@ const Deposits = () => {
 
             <button
               type="submit"
-              disabled={loading || (usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved') || !register('amount').value}
+              disabled={loading || (usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved')}
               className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => {
+                console.log('🔍 按钮点击调试:');
+                console.log('- loading:', loading);
+                console.log('- usdeData?.data?.kycStatus:', usdeData?.data?.kycStatus);
+                console.log('- usdeData?.kycStatus:', usdeData?.kycStatus);
+                console.log('- 按钮禁用状态:', loading || (usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved'));
+              }}
             >
               {loading ? 'Processing...' : 'Deposit & Mint USDE'}
             </button>
@@ -433,7 +444,7 @@ const Deposits = () => {
                 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter amount to withdraw"
-                disabled={usdeData?.kycStatus !== 'approved'}
+                disabled={(usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved')}
               />
               {errors.amount && (
                 <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>
@@ -452,7 +463,7 @@ const Deposits = () => {
                 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="Enter your wallet address"
-                disabled={usdeData?.kycStatus !== 'approved'}
+                disabled={(usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved')}
               />
               {errors.walletAddress && (
                 <p className="text-red-500 text-sm mt-1">{errors.walletAddress.message}</p>
@@ -460,7 +471,7 @@ const Deposits = () => {
             </div>
             <button
               type="submit"
-              disabled={loading || usdeData?.kycStatus !== 'approved'}
+              disabled={loading || (usdeData?.data?.kycStatus !== 'approved' && usdeData?.kycStatus !== 'approved')}
               className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Processing...' : 'Withdraw to Wallet'}

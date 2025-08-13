@@ -42,7 +42,7 @@ async function seedUsers() {
     if (!existingDemo) {
       const hashedPassword = await bcrypt.hash('demo123', 10);
       
-      await prisma.company.create({
+      const demoUser = await prisma.company.create({
         data: {
           name: 'Demo Company',
           email: 'demo@usde.com',
@@ -60,9 +60,59 @@ async function seedUsers() {
           totalEarnings: 2000
         }
       });
+
+      // 为用户分配角色权限
+      const adminRole = await prisma.role.findUnique({
+        where: { name: 'enterprise_admin' }
+      });
+
+      if (adminRole) {
+        await prisma.userRole.create({
+          data: {
+            userId: demoUser.id,
+            roleId: adminRole.id,
+            companyId: demoUser.id
+          }
+        });
+      }
       
       console.log('✅ Demo user created: demo@usde.com');
     } else {
+      // 确保现有demo用户有正确的权限
+      await prisma.company.update({
+        where: { email: 'demo@usde.com' },
+        data: {
+          role: 'enterprise_admin',
+          isEnterpriseAdmin: true,
+          enterpriseRole: 'enterprise_admin'
+        }
+      });
+
+      // 确保有角色分配
+      const adminRole = await prisma.role.findUnique({
+        where: { name: 'enterprise_admin' }
+      });
+
+      if (adminRole) {
+        // 检查是否已存在角色分配
+        const existingUserRole = await prisma.userRole.findFirst({
+          where: {
+            userId: existingDemo.id,
+            roleId: adminRole.id
+          }
+        });
+
+        if (!existingUserRole) {
+          await prisma.userRole.create({
+            data: {
+              userId: existingDemo.id,
+              roleId: adminRole.id,
+              companyId: existingDemo.id
+            }
+          });
+        }
+      }
+      
       console.log('ℹ️  Demo user already exists: demo@usde.com');
     }
 

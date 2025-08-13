@@ -2,13 +2,23 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const prisma = require('../lib/prisma');
-const { verifyToken, requireSystemAdmin, logAudit } = require('../middleware/auth');
+const { verifyToken, requireSystemAdmin, requireEnterpriseAdmin, logAudit } = require('../middleware/auth');
 
 const router = express.Router();
 
 // Get system settings
-router.get('/', verifyToken, requireSystemAdmin, async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
+    // 检查用户权限
+    const user = await prisma.company.findUnique({
+      where: { id: req.company.companyId }
+    });
+
+    // 只有系统管理员和企业管理员可以访问设置
+    if (user.role !== 'admin' && !user.isEnterpriseAdmin) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+
     // TODO: Implement system settings retrieval from database
     const settings = {
       blockchain: {

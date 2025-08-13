@@ -49,3 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_deposits_company_status ON deposits(companyId, st
 CREATE INDEX IF NOT EXISTS idx_deposits_created_at ON deposits(createdAt);
 CREATE INDEX IF NOT EXISTS idx_usde_transactions_company_type ON usde_transactions(companyId, type);
 CREATE INDEX IF NOT EXISTS idx_usde_transactions_status ON usde_transactions(status);
+
+
+

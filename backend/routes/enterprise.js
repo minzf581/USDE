@@ -14,13 +14,19 @@ const requireEnterpriseAdmin = async (req, res, next) => {
       where: { id: userId }
     });
 
-    if (!user || !user.isEnterpriseAdmin) {
-      return res.status(403).json({ error: 'Enterprise admin access required' });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    req.enterpriseAdmin = user;
-    next();
+    // 系统管理员和企业管理员都可以访问
+    if (user.role === 'admin' || user.isEnterpriseAdmin) {
+      req.enterpriseAdmin = user;
+      return next();
+    }
+
+    return res.status(403).json({ error: 'Enterprise admin access required' });
   } catch (error) {
+    console.error('Enterprise admin check error:', error);
     res.status(500).json({ error: 'Permission check failed' });
   }
 };
@@ -30,21 +36,12 @@ router.get('/users', verifyToken, requireEnterpriseAdmin, async (req, res) => {
   try {
     const enterpriseAdmin = req.enterpriseAdmin;
     
-    // Get enterprise
-    const enterprise = await prisma.enterprise.findUnique({
-      where: { adminId: enterpriseAdmin.id }
-    });
-
-    if (!enterprise) {
-      return res.status(404).json({ error: 'Enterprise not found' });
-    }
-
-    // Get all users in this enterprise
+    // 获取企业用户 - 包括企业管理员自己和所有子用户
     const users = await prisma.company.findMany({
       where: {
         OR: [
-          { id: enterpriseAdmin.id }, // Enterprise admin
-          { enterpriseId: enterprise.id } // Enterprise users
+          { id: enterpriseAdmin.id }, // 企业管理员自己
+          { enterpriseId: enterpriseAdmin.id } // 子用户
         ]
       },
       select: {
@@ -53,6 +50,7 @@ router.get('/users', verifyToken, requireEnterpriseAdmin, async (req, res) => {
         email: true,
         kycStatus: true,
         isActive: true,
+        role: true,
         enterpriseRole: true,
         createdAt: true,
         updatedAt: true
@@ -94,15 +92,6 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
       return res.status(400).json({ error: 'User with this email already exists' });
     }
 
-    // Get enterprise
-    const enterprise = await prisma.enterprise.findUnique({
-      where: { adminId: enterpriseAdmin.id }
-    });
-
-    if (!enterprise) {
-      return res.status(404).json({ error: 'Enterprise not found' });
-    }
-
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -115,7 +104,7 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
         role: enterpriseRole,
         isEnterpriseAdmin: false,
         isEnterpriseUser: true,
-        enterpriseId: enterprise.id,
+        enterpriseId: enterpriseAdmin.id, // 设置为企业管理员的子用户
         enterpriseRole,
         isActive: true
       }
@@ -130,7 +119,7 @@ router.post('/users', verifyToken, requireEnterpriseAdmin, [
         details: JSON.stringify({
           userEmail: email,
           enterpriseRole,
-          enterpriseId: enterprise.id
+          enterpriseId: enterpriseAdmin.id
         })
       }
     });

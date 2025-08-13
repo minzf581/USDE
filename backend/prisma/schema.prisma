@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./data/app.db"
 }
 
 // Enterprise models
@@ -26,7 +26,7 @@ model Enterprise {
 // Role-based access control models
 model Role {
   id          String   @id @default(cuid())
-  name        String   @unique // admin, finance_manager, finance_operator, observer
+  name        String   @unique // ADMIN, SUPERVISOR, OPERATOR, OBSERVER
   description String?
   permissions Permission[]
   users       UserRole[]
@@ -127,6 +127,13 @@ model Company {
   companyName       String? // Company name for enterprise admin
   enterpriseCompanyType String? // Company type for enterprise admin
   
+  // Multi-company support - NEW FIELDS
+  companyCode       String? // Unique company identifier code
+  companyAddress    String? // Blockchain address for the company
+  parentCompanyId   String? // ID of parent company (null for parent companies)
+  isParentCompany   Boolean @default(false) // Whether this is a parent company
+  companyType       String? // "parent" or "subsidiary"
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
@@ -136,7 +143,7 @@ model Company {
   countryOfReg      String?  // Country of registration
   regAddress        String?  // Registered address
   incorporationDate DateTime? // Date of incorporation
-  companyType       String?  // Type of company (Private Limited, etc.)
+  kycCompanyType    String?  // Type of company (Private Limited, etc.) - renamed to avoid conflict
   
   // KYC Compliance
   isPEP             Boolean  @default(false) // Politically Exposed Person
@@ -156,10 +163,20 @@ model Company {
   ubos          UBO[]     // Ultimate Beneficial Owners
   kycReviews    KYCReview[] // KYC review history
   auditLogs     AuditLog[] // Admin audit logs
+  riskAssessments RiskAssessment[] // Risk assessment history
+  paymentRequests PaymentRequest[] @relation("PaymentRequestCompany")
+  targetPaymentRequests PaymentRequest[] @relation("PaymentRequestTarget")
+  requestedPaymentRequests PaymentRequest[] @relation("PaymentRequestRequester")
+  approvedPaymentRequests PaymentRequest[] @relation("PaymentRequestApprover")
+  rejectedPaymentRequests PaymentRequest[] @relation("PaymentRequestRejecter")
   
   // Enterprise relations
   enterpriseAsAdmin Enterprise? @relation("EnterpriseAdmin")
   enterpriseAsUser  Enterprise? @relation("EnterpriseUsers", fields: [enterpriseId], references: [id])
+  
+  // Multi-company relations - NEW RELATIONS
+  subsidiaries Company[] @relation("ParentSubsidiary")
+  parentCompany Company? @relation("ParentSubsidiary", fields: [parentCompanyId], references: [id])
   
   // Treasury control relations
   userRoles     UserRole[] @relation("UserRoles")
@@ -257,9 +274,14 @@ model Deposit {
   id          String   @id @default(cuid())
   companyId   String
   amount      Float
+  fee         Float    @default(0)
+  feeRate     Float    @default(0.0025)
+  usdeAmount  Float    @default(0)
+  paymentMethod String  @default("card")
   stripePaymentId String?
   stripeSessionId String? // Stripe checkout session ID
   status      String   @default("pending") // pending, completed, failed
+  expiresAt   DateTime?
   timestamp   DateTime @default(now())
   
   // Relations
@@ -327,4 +349,47 @@ model AuditLog {
   
   // Relations
   admin       Company  @relation(fields: [adminId], references: [id])
+}
+
+// Risk Assessment
+model RiskAssessment {
+  id              String   @id @default(cuid())
+  companyId       String
+  assessmentType  String   // deposit, withdrawal, etc.
+  amount          Float
+  riskScore       Int
+  riskFactors     String   // JSON string of risk factors
+  decision        String   // approved, manual_review, rejected
+  decisionReason  String?
+  timestamp       DateTime @default(now())
+  
+  // Relations
+  company         Company  @relation(fields: [companyId], references: [id])
+}
+
+// Payment Request for Subsidiary Support
+model PaymentRequest {
+  id              String   @id @default(cuid())
+  companyId       String
+  type            String   // 'external', 'internal_transfer'
+  tokenAddress    String
+  amount          Float
+  recipient       String?  // For external payments
+  targetCompanyId String?  // For internal transfers
+  purpose         String
+  status          String   @default("pending") // 'pending', 'approved', 'rejected'
+  requestedBy     String
+  requestedAt     DateTime @default(now())
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  
+  // Relations
+  company         Company  @relation("PaymentRequestCompany", fields: [companyId], references: [id])
+  targetCompany   Company? @relation("PaymentRequestTarget", fields: [targetCompanyId], references: [id])
+  requester       Company  @relation("PaymentRequestRequester", fields: [requestedBy], references: [id])
+  approver        Company? @relation("PaymentRequestApprover", fields: [approvedBy], references: [id])
+  rejecter        Company? @relation("PaymentRequestRejecter", fields: [rejectedBy], references: [id])
 } 
