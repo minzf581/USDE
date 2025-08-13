@@ -58,6 +58,39 @@ router.post('/kyc/upload', verifyToken, upload.array('documents', 5), async (req
   }
 });
 
+// Get current company information
+router.get('/current', verifyToken, async (req, res) => {
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: req.company.companyId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        type: true,
+        status: true,
+        kycStatus: true,
+        balance: true,
+        usdeBalance: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    res.json({
+      success: true,
+      company: company
+    });
+  } catch (error) {
+    console.error('Error fetching current company:', error);
+    res.status(500).json({ error: 'Failed to fetch company information' });
+  }
+});
+
 // Update company profile
 router.put('/profile', verifyToken, [
   body('name').optional().trim().isLength({ min: 2 }).withMessage('Company name must be at least 2 characters'),

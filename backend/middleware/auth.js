@@ -17,18 +17,16 @@ const verifyToken = async (req, res, next) => {
       where: { id: decoded.companyId }
     });
 
-    if (!user || !user.isActive) {
+    if (!user || user.status !== 'active') {
       return res.status(401).json({ error: 'Invalid or inactive user' });
     }
 
     req.company = {
       companyId: user.id,
       email: user.email,
-      role: user.role,
+      type: user.type,
       kycStatus: user.kycStatus,
-      isEnterpriseAdmin: user.isEnterpriseAdmin,
-      isEnterpriseUser: user.isEnterpriseUser,
-      enterpriseRole: user.enterpriseRole
+      status: user.status
     };
 
     next();
@@ -45,7 +43,7 @@ const requireRole = (roles) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const userRole = req.company.role;
+    const userRole = req.company.type;
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
 
     if (!allowedRoles.includes(userRole)) {
@@ -69,7 +67,7 @@ const requireEnterpriseAdmin = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
+  if (req.company.type === 'enterprise' || req.company.type === 'company') {
     return next();
   }
 
@@ -82,7 +80,7 @@ const requireEnterpriseUser = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin || req.company.isEnterpriseUser) {
+  if (req.company.type === 'enterprise' || req.company.type === 'company' || req.company.type === 'subsidiary') {
     return next();
   }
 
@@ -95,7 +93,7 @@ const requireAdmin = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.company.role === 'system_admin' || req.company.isEnterpriseAdmin) {
+  if (req.company.type === 'enterprise' || req.company.type === 'company') {
     return next();
   }
 
