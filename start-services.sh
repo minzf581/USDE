@@ -36,13 +36,11 @@ if [[ "$DATABASE_PROVIDER" == "sqlite" ]]; then
     echo "🗄️  设置本地SQLite数据库..."
     cd "$SCRIPT_DIR/backend"
     
-    # 切换到SQLite schema
-    echo "🔄 切换到SQLite schema..."
-    if [ -f "prisma/schema.sqlite.prisma" ]; then
-        cp prisma/schema.sqlite.prisma prisma/schema.prisma
-        echo "✅ Schema已切换到SQLite"
-    else
-        echo "❌ SQLite schema文件不存在"
+    # 动态生成SQLite schema
+    echo "🔄 生成SQLite schema..."
+    node generate-schema.js
+    if [ $? -ne 0 ]; then
+        echo "❌ Schema生成失败"
         exit 1
     fi
     
@@ -65,13 +63,11 @@ else
     echo "🗄️  使用PostgreSQL数据库，跳过本地数据库设置"
     cd "$SCRIPT_DIR/backend"
     
-    # 切换到PostgreSQL schema
-    echo "🔄 切换到PostgreSQL schema..."
-    if [ -f "prisma/schema.postgresql.prisma" ]; then
-        cp prisma/schema.postgresql.prisma prisma/schema.prisma
-        echo "✅ Schema已切换到PostgreSQL"
-    else
-        echo "❌ PostgreSQL schema文件不存在"
+    # 动态生成PostgreSQL schema
+    echo "🔄 生成PostgreSQL schema..."
+    node generate-schema.js
+    if [ $? -ne 0 ]; then
+        echo "❌ Schema生成失败"
         exit 1
     fi
     
