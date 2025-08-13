@@ -21,6 +21,16 @@ fi
 
 echo "✅ PostgreSQL connection string validated"
 
+# 切换到PostgreSQL schema
+echo "🔄 Switching to PostgreSQL schema..."
+if [ -f "prisma/schema.postgresql.prisma" ]; then
+    cp prisma/schema.postgresql.prisma prisma/schema.prisma
+    echo "✅ Schema switched to PostgreSQL"
+else
+    echo "❌ PostgreSQL schema file not found"
+    exit 1
+fi
+
 # 生成Prisma客户端
 echo "🔧 Generating Prisma client..."
 npx prisma generate
