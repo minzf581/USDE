@@ -5,8 +5,20 @@ const rateLimit = require('express-rate-limit');
 const responseTime = require('./middleware/responseTime');
 require('dotenv').config();
 
-// 设置正确的数据库URL
-process.env.DATABASE_URL = process.env.DATABASE_URL || "file:./prisma/data/app.db";
+// 智能数据库配置管理
+const DatabaseConfig = require('./config/database');
+const dbConfig = new DatabaseConfig();
+
+// 设置环境变量
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = dbConfig.config.url;
+}
+
+// 设置数据库提供者
+process.env.DATABASE_PROVIDER = dbConfig.config.provider;
+
+// 打印配置信息
+dbConfig.printConfig();
 
 const { router: authRoutes } = require('./routes/auth');
 const companyRoutes = require('./routes/company');
