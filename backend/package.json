@@ -21,7 +21,8 @@
     "railway:deploy": "chmod +x railway-start.sh && ./railway-start.sh",
     "test:postgresql": "node test-postgresql-connection.js",
     "test:health": "node test-health-endpoints.js",
-    "schema:generate": "node generate-schema.js"
+    "schema:generate": "node generate-schema.js",
+    "schema:validate": "node validate-schema.js"
   },
   "dependencies": {
     "express": "^4.18.2",
