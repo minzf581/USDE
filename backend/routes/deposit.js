@@ -41,8 +41,8 @@ async function assessRisk(companyId, amount, paymentMethod) {
     // 频率风险评估
     const recentDeposits = await prisma.deposit.count({
       where: {
-        companyId,
-        createdAt: {
+        company_id: companyId,
+        created_at: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24小时内
         }
       }
@@ -62,18 +62,18 @@ async function assessRisk(companyId, amount, paymentMethod) {
     const decision = riskScore > 70 ? 'rejected' : 
                     riskScore > 40 ? 'manual_review' : 'approved';
     
-    // 保存风控记录
-    await prisma.riskAssessment.create({
-      data: {
-        companyId,
-        assessmentType: 'deposit',
-        amount,
-        riskScore,
-        riskFactors: JSON.stringify(riskFactors),
-        decision,
-        decisionReason: decision === 'rejected' ? 'High risk score' : null
-      }
-    });
+    // 保存风控记录（暂时注释掉，因为数据库中没有RiskAssessment模型）
+    // await prisma.riskAssessment.create({
+    //   data: {
+    //     companyId,
+    //     assessmentType: 'deposit',
+    //     amount,
+    //     riskScore,
+    //     riskFactors: JSON.stringify(riskFactors),
+    //     decision,
+    //     decisionReason: decision === 'rejected' ? 'High risk score' : null
+    //   }
+    // });
     
     return { riskScore, decision, factors: riskFactors };
     
@@ -161,12 +161,9 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     // 创建订单记录（增强版）
     const order = await prisma.deposit.create({
       data: {
-        companyId,
+        company_id: companyId,
         amount,
-        fee,
-        feeRate,
-        usdeAmount,
-        paymentMethod,
+        currency: 'USD',
         status: 'CREATED'
       }
     });
@@ -174,10 +171,7 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     console.log(`[API] Order created:`, {
       orderId: order.id,
       status: order.status,
-      amount: order.amount,
-      fee: order.fee,
-      usdeAmount: order.usdeAmount,
-      paymentMethod: order.paymentMethod
+      amount: order.amount
     });
     
     // 创建Stripe会话（保持原有逻辑）
@@ -205,7 +199,7 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
     await prisma.deposit.update({
       where: { id: order.id },
       data: { 
-        stripeSessionId: session.id,
+        stripe_payment_intent_id: session.id,
         status: 'PENDING'
       }
     });
@@ -223,7 +217,6 @@ router.post('/create-session', depositLimiter, verifyToken, validateDeposit, asy
         usdeAmount,
         fee,
         feeRate,
-        expiresAt: order.expiresAt,
         riskAssessment: {
           score: riskAssessment.riskScore,
           decision: riskAssessment.decision,
@@ -1202,7 +1195,7 @@ router.post('/process-pending/:depositId', verifyToken, async (req, res) => {
         where: { id: depositId },
         data: {
           status: 'COMPLETED',
-          completedAt: new Date()
+          updated_at: new Date()
         }
       });
       
@@ -1227,25 +1220,25 @@ router.post('/process-pending/:depositId', verifyToken, async (req, res) => {
         }
       });
       
-      // 创建USDE交易记录
-      await tx.USDETransaction.create({
-        data: {
-          companyId,
-          type: 'mint',
-          amount: deposit.usde_minted,
-          balanceBefore,
-          balanceAfter,
-          description: `Minted ${deposit.usde_minted} USDE from $${deposit.amount} deposit (manual process)`,
-          metadata: JSON.stringify({
-            depositId: deposit.id,
-            stripeSessionId: deposit.stripeSessionId,
-            paymentMethod: deposit.paymentMethod,
-            fee: 0, // 暂时设为0，因为数据库中没有fee字段
-            processType: 'manual'
-          }),
-          status: 'confirmed'
-        }
-      });
+                // 创建USDE交易记录
+          await tx.USDETransaction.create({
+            data: {
+              company_id: companyId,
+              type: 'mint',
+              amount: deposit.amount, // 使用deposit金额而不是usde_minted
+              description: `Minted ${deposit.amount} USDE from $${deposit.amount} deposit (manual process)`,
+              metadata: JSON.stringify({
+                depositId: deposit.id,
+                stripeSessionId: deposit.stripe_payment_intent_id || null,
+                paymentMethod: 'card', // 默认支付方式
+                fee: 0, // 暂时设为0，因为数据库中没有fee字段
+                processType: 'manual',
+                balanceBefore,
+                balanceAfter
+              }),
+              status: 'completed'
+            }
+          });
       
       console.log(`[API] Successfully processed pending deposit:`, {
         depositId,
@@ -1263,7 +1256,7 @@ router.post('/process-pending/:depositId', verifyToken, async (req, res) => {
               data: {
           depositId,
           status: 'COMPLETED',
-          usdeAmount: deposit.usde_minted
+          usdeAmount: deposit.amount
         }
     });
     
@@ -1317,7 +1310,7 @@ router.post('/process-all-pending', verifyToken, async (req, res) => {
             where: { id: deposit.id },
             data: {
               status: 'COMPLETED',
-              completedAt: new Date()
+              updated_at: new Date()
             }
           });
           
@@ -1332,7 +1325,7 @@ router.post('/process-all-pending', verifyToken, async (req, res) => {
           }
           
           const balanceBefore = company.usdeBalance || 0;
-          const balanceAfter = balanceBefore + deposit.usde_minted;
+          const balanceAfter = balanceBefore + deposit.amount;
           
           // 更新公司余额
           await tx.company.update({
@@ -1345,25 +1338,25 @@ router.post('/process-all-pending', verifyToken, async (req, res) => {
           // 创建USDE交易记录
           await tx.USDETransaction.create({
             data: {
-              companyId,
+              company_id: companyId,
               type: 'mint',
-              amount: deposit.usde_minted,
-              balanceBefore,
-              balanceAfter,
-              description: `Minted ${deposit.usde_minted} USDE from $${deposit.amount} deposit (batch process)`,
+              amount: deposit.amount, // 使用deposit金额而不是usde_minted
+              description: `Minted ${deposit.amount} USDE from $${deposit.amount} deposit (batch process)`,
               metadata: JSON.stringify({
                 depositId: deposit.id,
-                stripeSessionId: deposit.stripeSessionId,
-                paymentMethod: deposit.paymentMethod,
+                stripeSessionId: deposit.stripe_payment_intent_id || null,
+                paymentMethod: 'card', // 默认支付方式
                 fee: 0, // 暂时设为0，因为数据库中没有fee字段
-                processType: 'batch'
+                processType: 'batch',
+                balanceBefore,
+                balanceAfter
               }),
-              status: 'confirmed'
+              status: 'completed'
             }
           });
           
           processedCount++;
-          totalAmount += deposit.usde_minted;
+          totalAmount += deposit.amount;
         });
       } catch (error) {
         console.error(`[API] Error processing deposit ${deposit.id}:`, error);
