@@ -150,19 +150,24 @@ const EnterpriseUsers = () => {
   const openEditModal = (user) => {
     setSelectedUser(user);
     setFormData({
-      name: user.name,
-      email: user.email,
+      name: user.name || '',
+      email: user.email || '',
       password: '',
-      enterpriseRole: user.enterpriseRole
+      enterpriseRole: user.role || 'enterprise_finance_operator',
+      isActive: user.status === 'active'
     });
     setShowEditModal(true);
   };
 
   const getRoleIcon = (role) => {
+    if (!role) return <UserPlus className="w-4 h-4 text-purple-600" />;
+    
     switch (role) {
       case 'finance_manager':
+      case 'enterprise_finance_manager':
         return <Shield className="w-4 h-4 text-blue-600" />;
       case 'finance_operator':
+      case 'enterprise_finance_operator':
         return <Settings className="w-4 h-4 text-green-600" />;
       case 'observer':
         return <Eye className="w-4 h-4 text-gray-600" />;
@@ -172,10 +177,14 @@ const EnterpriseUsers = () => {
   };
 
   const getRoleName = (role) => {
+    if (!role) return 'Unknown';
+    
     switch (role) {
       case 'finance_manager':
+      case 'enterprise_finance_manager':
         return 'Finance Manager';
       case 'finance_operator':
+      case 'enterprise_finance_operator':
         return 'Finance Operator';
       case 'observer':
         return 'Observer';
@@ -385,42 +394,42 @@ const EnterpriseUsers = () => {
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
                               <span className="text-white font-semibold text-sm">
-                                {user.name.charAt(0).toUpperCase()}
+                                {(user.name || '').charAt(0).toUpperCase()}
                               </span>
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                              <div className="text-sm text-gray-500">{user.email}</div>
+                              <div className="text-sm font-medium text-gray-900">{user.name || 'N/A'}</div>
+                              <div className="text-sm text-gray-500">{user.email || 'N/A'}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
-                            {getRoleIcon(user.enterpriseRole)}
+                            {getRoleIcon(user.role)}
                             <span className="text-sm text-gray-900">
-                              {getRoleName(user.enterpriseRole)}
+                              {getRoleName(user.role)}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
-                            {getStatusIcon(user.isActive)}
-                            <span className={`text-sm ${user.isActive ? 'text-green-800' : 'text-red-800'}`}>
-                              {user.isActive ? 'Active' : 'Inactive'}
+                            {getStatusIcon(user.status === 'active')}
+                            <span className={`text-sm ${user.status === 'active' ? 'text-green-800' : 'text-red-800'}`}>
+                              {user.status === 'active' ? 'Active' : 'Inactive'}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.kycStatus === 'approved' ? 'bg-green-100 text-green-800' :
-                            user.kycStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            (user.kycStatus || user.status) === 'approved' ? 'bg-green-100 text-green-800' :
+                            (user.kycStatus || user.status) === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {user.kycStatus.charAt(0).toUpperCase() + user.kycStatus.slice(1)}
+                            {((user.kycStatus || user.status) || 'Unknown').charAt(0).toUpperCase() + (user.kycStatus || user.status || 'Unknown').slice(1)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(user.createdAt).toLocaleDateString()}
+                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
@@ -497,8 +506,8 @@ const EnterpriseUsers = () => {
                           onChange={(e) => setFormData({ ...formData, enterpriseRole: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="finance_manager">Finance Manager</option>
-                          <option value="finance_operator">Finance Operator</option>
+                          <option value="enterprise_finance_manager">Finance Manager</option>
+                          <option value="enterprise_finance_operator">Finance Operator</option>
                           <option value="observer">Observer</option>
                         </select>
                       </div>
@@ -562,8 +571,8 @@ const EnterpriseUsers = () => {
                           onChange={(e) => setFormData({ ...formData, enterpriseRole: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="finance_manager">Finance Manager</option>
-                          <option value="finance_operator">Finance Operator</option>
+                          <option value="enterprise_finance_manager">Finance Manager</option>
+                          <option value="enterprise_finance_operator">Finance Operator</option>
                           <option value="observer">Observer</option>
                         </select>
                       </div>

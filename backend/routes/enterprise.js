@@ -39,28 +39,48 @@ router.get('/users', verifyToken, requireEnterpriseAdmin, async (req, res) => {
   try {
     const enterpriseAdmin = req.enterpriseAdmin;
     
-    // 获取企业用户 - 目前只返回企业管理员自己，因为我们的模型中没有子公司关系
-    const users = await prisma.company.findMany({
-      where: {
-        id: enterpriseAdmin.id // 暂时只返回企业管理员自己
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        kycStatus: true,
-        role: true,
-        type: true,
-        status: true,
-        balance: true,
-        usdeBalance: true,
-        createdAt: true,
-        updatedAt: true
-      },
-      orderBy: { createdAt: 'desc' }
+    console.log('🔍 enterpriseAdmin:', enterpriseAdmin);
+    
+    // 查找企业
+    const enterprise = await prisma.enterprise.findUnique({
+      where: { adminId: enterpriseAdmin.id },
+      include: {
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            type: true,
+            status: true,
+            kycStatus: true,
+            createdAt: true
+          }
+        }
+      }
     });
 
-    res.json(users);
+    if (!enterprise) {
+      return res.status(404).json({ error: 'Enterprise not found' });
+    }
+
+    // 包含管理员自己和所有企业用户
+    const allUsers = [
+      {
+        id: enterpriseAdmin.id,
+        name: enterpriseAdmin.name,
+        email: enterpriseAdmin.email,
+        role: enterpriseAdmin.role,
+        type: enterpriseAdmin.type,
+        status: enterpriseAdmin.status,
+        kycStatus: enterpriseAdmin.kycStatus,
+        createdAt: enterpriseAdmin.createdAt
+      },
+      ...enterprise.users
+    ];
+
+    console.log('🔍 users found:', allUsers);
+    res.json(allUsers);
   } catch (error) {
     console.error('Get enterprise users error:', error);
     console.error('Error details:', error.message);
