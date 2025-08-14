@@ -41,7 +41,7 @@ router.post('/', verifyToken, requireKYCApproved, [
     // 检查是否已存在相同的银行账户
     const existingAccount = await prisma.bankAccount.findFirst({
       where: {
-        company_id: companyId,
+        companyId: companyId,
         bank_name: bankName,
         account_number: accountNum
       }

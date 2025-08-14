@@ -117,10 +117,6 @@ model Company {
   kycStatus   String   @default("pending")
   balance     Float    @default(0)
   usdeBalance Float    @default(0)
-  riskRating  String   @default("medium")
-  dailyLimit  Float    @default(10000)
-  monthlyLimit Float   @default(100000)
-  kycLevel    Int      @default(1)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -143,15 +139,10 @@ model Company {
   withdrawals Withdrawal[]
   kycRequests KYC[]
   bankAccounts BankAccount[]
+  usdeTransactions USDETransaction[]
   
   // Approval relations
   approvals Approval[]
-  
-  // Risk assessments
-  riskAssessments RiskAssessment[]
-  
-  // USDE transactions
-  usdeTransactions USDETransaction[]
 }
 
 model User {
@@ -168,137 +159,115 @@ model User {
 // Payment models
 model Payment {
   id          String   @id @default(cuid())
-  companyId   String
+  company_id  String
   amount      Float
   currency    String   @default("USD")
   status      String   @default("pending")
   type        String   // payment, withdrawal
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
 // Stake models
 model Stake {
   id          String   @id @default(cuid())
-  companyId   String
+  company_id  String
   amount      Float
   apy         Float    @default(0.05)
   status      String   @default("active")
-  startDate   DateTime @default(now())
-  endDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  start_date  DateTime @default(now())
+  end_date    DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
-// Deposit models (Enhanced)
+// Deposit models
 model Deposit {
-  id                    String   @id @default(cuid())
-  companyId             String
-  amount                Float
-  currency              String   @default("USD")
-  status                String   @default("pending")
-  stripeSessionId       String?
-  stripePaymentIntentId String?
-  feeRate               Float    @default(0.0025)
-  paymentMethod         String   @default("card")
-  failureReason         String?
-  blockchainTxHash      String?
-  expiresAt             DateTime?
-  fee                   Float    @default(0)
-  usdeAmount            Float    @default(0)
-  completedAt           DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id          String   @id @default(cuid())
+  company_id  String
+  amount      Float
+  currency    String   @default("USD")
+  status      String   @default("pending")
+  stripe_payment_intent_id String?
+  usde_minted Float    @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
-// Withdrawal models (Enhanced)
+// Withdrawal models
 model Withdrawal {
-  id            String   @id @default(cuid())
-  companyId     String
-  amount        Float
-  currency      String   @default("USD")
-  status        String   @default("pending")
-  walletAddress String?
-  transactionHash String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  company_id  String
+  amount      Float
+  currency    String   @default("USD")
+  status      String   @default("pending")
+  bank_account_id String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
 // KYC models
 model KYC {
   id          String   @id @default(cuid())
-  companyId   String
+  company_id  String
   status      String   @default("pending")
   documents   String?  // JSON array of document URLs
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
 // Bank Account models
 model BankAccount {
-  id            String   @id @default(cuid())
-  companyId     String
-  accountNumber String
-  routingNumber String
-  bankName      String
-  accountType   String   @default("checking")
-  status        String   @default("active")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  company_id  String
+  account_number String
+  routing_number String
+  bank_name   String
+  account_type String @default("checking")
+  status      String  @default("active")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }
 
-// Risk Assessment model
-model RiskAssessment {
-  id              String   @id @default(cuid())
-  companyId       String
-  assessmentType  String   // deposit, withdrawal
-  amount          Float
-  riskScore       Int      @default(0)
-  riskFactors     String?  // JSON format
-  decision        String   @default("approved") // approved, rejected, manual_review
-  decisionReason  String?
-  assessor        String   @default("system")
-  createdAt       DateTime @default(now())
-  
-  // Relations
-  company Company @relation(fields: [companyId], references: [id])
-}
-
-// USDE Transaction model
+// USDE Transaction models
 model USDETransaction {
-  id                String   @id @default(cuid())
-  companyId         String
-  type              String   // mint, withdraw, transfer
-  amount            Float
-  balanceBefore     Float
-  balanceAfter      Float
-  description       String?
-  metadata          String?  // JSON string
-  timestamp         DateTime @default(now())
-  blockchainTxHash  String?
-  status            String   @default("confirmed")
-  blockNumber       BigInt?
+  id          String   @id @default(cuid())
+  company_id  String
+  type        String   // deposit, withdrawal, mint, burn, transfer
+  amount      Float
+  currency    String   @default("USD")
+  status      String   @default("completed")
+  reference_id String? // ID of related deposit/withdrawal
+  reference_type String? // deposit, withdrawal, etc.
+  balanceBefore Float? // Balance before transaction
+  balanceAfter Float?  // Balance after transaction
+  description String?  // Transaction description
+  blockchainTxHash String? // Blockchain transaction hash
+  metadata    String?  // JSON metadata
+  timestamp   DateTime @default(now())
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
   
   // Relations
-  company Company @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [company_id], references: [id])
 }

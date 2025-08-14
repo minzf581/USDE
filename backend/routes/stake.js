@@ -143,7 +143,7 @@ router.post('/', verifyToken, [
       // Create stake
       const stake = await tx.stake.create({
         data: {
-          company_id: companyId,
+          companyId: companyId,
           amount,
           start_date: new Date(),
           end_date: endDate,

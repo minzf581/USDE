@@ -28,10 +28,10 @@ async function main() {
       password: hashedPassword,
       role: 'system_admin',
       kycStatus: 'approved',
-      ucBalance: 10000, // Starting balance for admin
-      totalEarnings: 0,
-      isEnterpriseAdmin: false,
-      isEnterpriseUser: false
+      balance: 10000, // Starting balance for admin
+      usdeBalance: 0,
+      type: 'admin',
+      status: 'active'
     }
   });
 

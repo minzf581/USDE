@@ -63,7 +63,7 @@ router.post('/register', [
     // Generate JWT token
     const token = jwt.sign(
       { companyId: company.id, email: company.email },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 

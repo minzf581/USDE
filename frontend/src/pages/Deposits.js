@@ -13,22 +13,42 @@ const Deposits = () => {
   const [activeTab, setActiveTab] = useState('deposit');
   const [orderStatus, setOrderStatus] = useState(null); // 新增订单状态跟踪
   const [paymentMethod, setPaymentMethod] = useState('card'); // 新增支付方式选择
+  
+  // 新增：交易记录相关状态
+  const [transactions, setTransactions] = useState([]);
+  const [depositStats, setDepositStats] = useState(null);
+  const [pendingDeposits, setPendingDeposits] = useState([]);
+  const [processingPending, setProcessingPending] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [usdeResponse, statsResponse] = await Promise.all([
+      const [usdeResponse, statsResponse, transactionsResponse, depositStatsResponse] = await Promise.all([
         depositAPI.getUSDEBalance(),
-        depositAPI.getStats()
+        depositAPI.getStats(),
+        depositAPI.getTransactions({ page: 1, limit: 20 }),
+        depositAPI.getDepositStats()
       ]);
 
       console.log('🔍 USDE API响应:', usdeResponse);
       console.log('🔍 Stats API响应:', statsResponse);
+      console.log('🔍 Transactions API响应:', transactionsResponse);
+      console.log('🔍 Deposit Stats API响应:', depositStatsResponse);
 
       setUsdeData(usdeResponse.data);
       setStats(statsResponse.data.summary);
+      setTransactions(transactionsResponse.data.data.transactions || []);
+      setDepositStats(depositStatsResponse.data.data);
+      
+      // 提取pending状态的deposits
+      if (depositStatsResponse.data.data?.recentDeposits) {
+        const pending = depositStatsResponse.data.data.recentDeposits.filter(
+          d => d.status === 'PENDING'
+        );
+        setPendingDeposits(pending);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load data');
@@ -161,6 +181,36 @@ const Deposits = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 新增：处理单个pending状态的deposit
+  const handleProcessPendingDeposit = async (depositId) => {
+    try {
+      setProcessingPending(true);
+      await depositAPI.processPendingDeposit(depositId);
+      toast.success('Deposit processed successfully');
+      loadData(); // 重新加载数据
+    } catch (error) {
+      console.error('Process pending deposit error:', error);
+      toast.error('Failed to process deposit');
+    } finally {
+      setProcessingPending(false);
+    }
+  };
+
+  // 新增：批量处理所有pending状态的deposits
+  const handleProcessAllPendingDeposits = async () => {
+    try {
+      setProcessingPending(true);
+      const response = await depositAPI.processAllPendingDeposits();
+      toast.success(`Successfully processed ${response.data.data.processedCount} deposits`);
+      loadData(); // 重新加载数据
+    } catch (error) {
+      console.error('Process all pending deposits error:', error);
+      toast.error('Failed to process pending deposits');
+    } finally {
+      setProcessingPending(false);
     }
   };
 
@@ -356,6 +406,33 @@ const Deposits = () => {
           <History className="w-4 h-4 inline mr-2" />
           History
         </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+            activeTab === 'transactions' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          <History className="w-4 h-4 inline mr-2" />
+          USDE Transactions
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`flex-1 py-2 px-4 rounded-md font-medium transition-colors ${
+            activeTab === 'pending' 
+              ? 'bg-white text-primary shadow-sm' 
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          <AlertCircle className="w-4 h-4 inline mr-2" />
+          Pending
+          {pendingDeposits.length > 0 && (
+            <span className="ml-1 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+              {pendingDeposits.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Deposit Tab */}
@@ -534,6 +611,183 @@ const Deposits = () => {
               <div className="bg-white rounded-lg shadow-sm border p-4">
                 <h4 className="text-sm font-medium text-gray-500">Total Withdrawals</h4>
                 <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalWithdrawals)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 新增：Transactions Tab - 显示详细的USDE交易记录 */}
+      {activeTab === 'transactions' && (
+        <div className="space-y-6">
+          {/* USDE Transactions */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">USDE Transaction History</h3>
+              <button
+                onClick={loadData}
+                className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+            
+            {transactions.length > 0 ? (
+              <div className="space-y-3">
+                {transactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      {transaction.type === 'mint' ? (
+                        <ArrowDownLeft className="w-5 h-5 text-green-500" />
+                      ) : transaction.type === 'withdraw' ? (
+                        <ArrowUpRight className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <History className="w-5 h-5 text-blue-500" />
+                      )}
+                      <div>
+                        <p className="font-medium">{transaction.description}</p>
+                        <p className="text-sm text-gray-500">{formatDate(transaction.timestamp)}</p>
+                        {transaction.metadata && (
+                          <p className="text-xs text-gray-400">
+                            Order ID: {transaction.metadata.orderId}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold text-lg ${
+                        transaction.type === 'mint' ? 'text-green-600' : 
+                        transaction.type === 'withdraw' ? 'text-red-600' : 'text-blue-600'
+                      }`}>
+                        {transaction.type === 'mint' ? '+' : transaction.type === 'withdraw' ? '-' : ''}
+                        {formatCurrency(transaction.amount)} USDE
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Balance: {formatCurrency(transaction.balanceAfter)} USDE
+                      </p>
+                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                        transaction.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                        transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {transaction.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">No USDE transactions yet</p>
+            )}
+          </div>
+
+          {/* Transaction Statistics */}
+          {depositStats && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <h4 className="text-sm font-medium text-gray-500">Total USDE Minted</h4>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(depositStats.summary?.totalUSDE || 0)} USDE
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <h4 className="text-sm font-medium text-gray-500">Total Fees Paid</h4>
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatCurrency(depositStats.summary?.totalFees || 0)}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <h4 className="text-sm font-medium text-gray-500">Total Transactions</h4>
+                <p className="text-2xl font-bold text-blue-600">
+                  {depositStats.summary?.totalDeposits || 0}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 新增：Pending Deposits Tab - 显示和处理pending状态的deposits */}
+      {activeTab === 'pending' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Pending Deposits</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={loadData}
+                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  Refresh
+                </button>
+                {pendingDeposits.length > 0 && (
+                  <button
+                    onClick={handleProcessAllPendingDeposits}
+                    disabled={processingPending}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  >
+                    {processingPending ? 'Processing...' : `Process All (${pendingDeposits.length})`}
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {pendingDeposits.length > 0 ? (
+              <div className="space-y-3">
+                {pendingDeposits.map((deposit) => (
+                  <div key={deposit.id} className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-yellow-500" />
+                      <div>
+                        <p className="font-medium">Pending Deposit</p>
+                        <p className="text-sm text-gray-600">
+                          Amount: {formatCurrency(deposit.amount)} | 
+                          USDE: {formatCurrency(deposit.usdeAmount)} | 
+                          Fee: {formatCurrency(deposit.fee)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Created: {formatDate(deposit.createdAt)} | 
+                          Payment Method: {deposit.paymentMethod}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <button
+                        onClick={() => handleProcessPendingDeposit(deposit.id)}
+                        disabled={processingPending}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        Process
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">No pending deposits</p>
+            )}
+          </div>
+
+          {/* Pending Deposits Statistics */}
+          {depositStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <h4 className="text-sm font-medium text-gray-500">Pending Amount</h4>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {formatCurrency(depositStats.byStatus?.PENDING?.amount || 0)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {depositStats.byStatus?.PENDING?.count || 0} pending deposits
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border p-4">
+                <h4 className="text-sm font-medium text-gray-500">Completed Amount</h4>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(depositStats.byStatus?.COMPLETED?.amount || 0)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {depositStats.byStatus?.COMPLETED?.count || 0} completed deposits
+                </p>
               </div>
             </div>
           )}

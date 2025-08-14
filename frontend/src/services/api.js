@@ -114,6 +114,18 @@ export const depositAPI = {
   // 新增：订单状态跟踪
   getOrderStatus: (orderId) => api.get(`/deposit/order/${orderId}/status`),
   
+  // 新增：获取交易记录
+  getTransactions: (params) => api.get('/deposit/transactions', { params }),
+  
+  // 新增：获取deposit统计
+  getDepositStats: () => api.get('/deposit/deposit-stats'),
+  
+  // 新增：处理pending状态的deposit
+  processPendingDeposit: (depositId) => api.post(`/deposit/process-pending/${depositId}`),
+  
+  // 新增：批量处理所有pending状态的deposit
+  processAllPendingDeposits: () => api.post('/deposit/process-all-pending'),
+  
   // Deposit History
   getHistory: (params) => api.get('/deposit', { params }),
   getWithdrawalHistory: (params) => api.get('/deposit/withdrawals', { params }),

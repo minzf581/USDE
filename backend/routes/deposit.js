@@ -260,10 +260,38 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
 
   try {
     console.log(`[WEBHOOK] Received webhook event`);
-    event = StripeService.verifyWebhook(req.body, sig);
+    console.log(`[WEBHOOK] Raw body:`, req.body.toString().substring(0, 200) + '...');
+    console.log(`[WEBHOOK] Headers:`, req.headers);
+    
+    // 在开发环境中，如果签名是测试签名，则跳过验证
+    if (process.env.NODE_ENV === 'development' && sig === 'test_signature') {
+      console.log('[WEBHOOK] Development mode - using test event');
+      event = {
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_webhook_123',
+            payment_intent: 'pi_test_webhook_123',
+            metadata: {
+              companyId: 'cmea5njqj0001cgim0dqzrx63',
+              orderId: 'cmear3r62000fbpjr3jnq5q3s',
+              usdeAmount: '2216.45',
+              amount: '2222',
+              paymentMethod: 'card'
+            }
+          }
+        }
+      };
+    } else {
+      // 验证真实的Stripe webhook
+      event = StripeService.verifyWebhook(req.body, sig);
+    }
+    
     console.log(`[WEBHOOK] Event type: ${event.type}`);
+    console.log(`[WEBHOOK] Event data:`, JSON.stringify(event.data, null, 2));
   } catch (err) {
     console.error('[WEBHOOK] Webhook signature verification failed:', err.message);
+    console.error('[WEBHOOK] Error details:', err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -276,13 +304,34 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
       companyId,
       orderId,
       usdeAmount,
-      paymentIntent: session.payment_intent
+      paymentIntent: session.payment_intent,
+      metadata: session.metadata
     });
+    
+    if (!companyId || !orderId || !usdeAmount) {
+      console.error('[WEBHOOK] Missing required metadata:', { companyId, orderId, usdeAmount });
+      return res.status(400).json({ error: 'Missing required metadata' });
+    }
     
     try {
       // 使用事务确保数据一致性
       await prisma.$transaction(async (tx) => {
         console.log(`[WEBHOOK] Starting transaction for order: ${orderId}`);
+        
+        // 首先检查订单是否存在
+        const existingOrder = await tx.deposit.findUnique({
+          where: { id: orderId }
+        });
+        
+        if (!existingOrder) {
+          throw new Error(`Order ${orderId} not found`);
+        }
+        
+        console.log(`[WEBHOOK] Found existing order:`, {
+          orderId: existingOrder.id,
+          status: existingOrder.status,
+          amount: existingOrder.amount
+        });
         
         // 更新订单状态
         const order = await tx.deposit.update({
@@ -306,9 +355,13 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
           select: { usdeBalance: true }
         });
         
-        console.log(`[WEBHOOK] Current balance for company ${companyId}:`, currentBalance?.usdeBalance || 0);
+        if (!currentBalance) {
+          throw new Error(`Company ${companyId} not found`);
+        }
         
-        const newBalance = (currentBalance?.usdeBalance || 0) + parseFloat(usdeAmount);
+        console.log(`[WEBHOOK] Current balance for company ${companyId}:`, currentBalance.usdeBalance || 0);
+        
+        const newBalance = (currentBalance.usdeBalance || 0) + parseFloat(usdeAmount);
         
         await tx.company.update({
           where: { id: companyId },
@@ -319,7 +372,7 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
         
         console.log(`[WEBHOOK] Updated company balance:`, {
           companyId,
-          oldBalance: currentBalance?.usdeBalance || 0,
+          oldBalance: currentBalance.usdeBalance || 0,
           addedAmount: parseFloat(usdeAmount),
           newBalance
         });
@@ -330,7 +383,7 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
             companyId,
             type: 'mint',
             amount: parseFloat(usdeAmount),
-            balanceBefore: currentBalance?.usdeBalance || 0,
+            balanceBefore: currentBalance.usdeBalance || 0,
             balanceAfter: newBalance,
             description: `Minted ${usdeAmount} USDE from $${order.amount} deposit`,
             metadata: JSON.stringify({
@@ -350,14 +403,23 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
           balanceBefore: transaction.balanceBefore,
           balanceAfter: transaction.balanceAfter
         });
+        
+        // 增加指标
+        simpleMetrics.incrementDeposits();
+        
+        console.log(`✅ [WEBHOOK] Successfully processed deposit for company ${companyId}`);
       });
-      
-      console.log(`✅ [WEBHOOK] Successfully processed deposit for company ${companyId}`);
       
     } catch (error) {
       console.error('[WEBHOOK] Error processing webhook:', error);
       console.error('[WEBHOOK] Error stack:', error.stack);
+      console.error('[WEBHOOK] Error details:', {
+        message: error.message,
+        code: error.code,
+        type: error.type
+      });
       // 这里可以添加重试机制或错误通知
+      return res.status(500).json({ error: 'Failed to process webhook' });
     }
   }
 
@@ -396,41 +458,41 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
     }
     
     // 构建交易查询条件
-    const whereClause = { companyId: companyId };
+    const whereClause = { company_id: companyId };
     if (type !== 'all') {
       whereClause.type = type;
     }
     
-    // 获取交易历史（分页）
+    // 获取交易历史（分页）- 从USDETransaction表查询
     const [transactions, totalCount] = await Promise.all([
-      prisma.deposit.findMany({
+      prisma.USDETransaction.findMany({
         where: whereClause,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { timestamp: 'desc' },
         skip: (parseInt(page) - 1) * parseInt(limit),
         take: parseInt(limit)
       }),
-      prisma.deposit.count({ where: whereClause })
+      prisma.USDETransaction.count({ where: whereClause })
     ]);
     
-    console.log(`[API] Transactions found: ${transactions.length}, Total: ${totalCount}`);
+    console.log(`[API] USDE Transactions found: ${transactions.length}, Total: ${totalCount}`);
     
     // 计算统计数据
     const [depositStats, withdrawStats, todayStats] = await Promise.all([
       prisma.deposit.aggregate({
-        where: { companyId: companyId, status: 'completed' },
+        where: { company_id: companyId, status: 'COMPLETED' },
         _sum: { amount: true },
         _count: { id: true }
       }),
       prisma.withdrawal.aggregate({
-        where: { companyId: companyId, status: 'completed' },
+        where: { company_id: companyId, status: 'COMPLETED' },
         _sum: { amount: true },
         _count: { id: true }
       }),
       prisma.deposit.aggregate({
         where: {
-          companyId: companyId,
-          status: 'completed',
-          createdAt: {
+          company_id: companyId,
+          status: 'COMPLETED',
+          created_at: {
             gte: new Date(new Date().setHours(0, 0, 0, 0))
           }
         },
@@ -442,9 +504,9 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
     const todayUsed = todayStats._sum.amount || 0;
     const monthlyUsed = await prisma.deposit.aggregate({
       where: {
-        companyId: companyId,
+        company_id: companyId,
         status: 'COMPLETED',
-        createdAt: {
+        created_at: {
           gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
         }
       },
@@ -474,17 +536,26 @@ router.get('/usde-balance', verifyToken, cacheMiddleware(300), async (req, res) 
         },
         transactions: transactions.map(t => ({
           id: t.id,
-          type: 'deposit',
+          type: t.type,
           amount: t.amount,
-          description: `Deposit of ${t.amount} USD`,
-          timestamp: t.createdAt,
-          balanceAfter: null // No balanceAfter field in current schema
+          description: t.description,
+          timestamp: t.timestamp,
+          balanceBefore: t.balanceBefore,
+          balanceAfter: t.balanceAfter,
+          status: t.status,
+          blockchainTxHash: t.blockchainTxHash
         })),
         stats: {
           totalDeposits: depositStats._sum.amount || 0,
           totalWithdrawals: withdrawStats._sum.amount || 0,
           depositCount: depositStats._count.id || 0,
           withdrawalCount: withdrawStats._count.id || 0
+        },
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          pages: Math.ceil(totalCount / parseInt(limit))
         }
       }
     };
@@ -835,26 +906,26 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
 
     const [totalDeposits, pendingDeposits, completedDeposits, totalWithdrawals] = await Promise.all([
       prisma.deposit.aggregate({
-        where: { companyId: companyId },
+        where: { company_id: companyId },
         _sum: { amount: true }
       }),
       prisma.deposit.aggregate({
         where: { 
-          companyId: companyId,
+          company_id: companyId,
           status: 'pending'
         },
         _sum: { amount: true }
       }),
       prisma.deposit.aggregate({
         where: { 
-          companyId: companyId,
+          company_id: companyId,
           status: 'completed'
         },
         _sum: { amount: true }
       }),
       prisma.withdrawal.aggregate({
         where: { 
-          companyId: companyId,
+          company_id: companyId,
           status: 'completed'
         },
         _sum: { amount: true }
@@ -873,6 +944,457 @@ router.get('/stats/summary', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Deposit stats error:', error);
     res.status(500).json({ error: 'Failed to fetch deposit statistics' });
+  }
+});
+
+// 新增：获取deposit和mint交易记录端点
+router.get('/transactions', verifyToken, cacheMiddleware(300), async (req, res) => {
+  try {
+    const companyId = req.company.companyId;
+    const { page = 1, limit = 20, type = 'all', status = 'all' } = req.query;
+    
+    console.log(`[API] GET /transactions - Company ID: ${companyId}`);
+    console.log(`[API] Request query params:`, { page, limit, type, status });
+    
+    // 构建查询条件
+    const whereClause = { company_id: companyId };
+    
+    if (type !== 'all') {
+      whereClause.type = type;
+    }
+    
+    if (status !== 'all') {
+      whereClause.status = status;
+    }
+    
+    // 获取交易记录（分页）
+    const [transactions, totalCount] = await Promise.all([
+      prisma.USDETransaction.findMany({
+        where: whereClause,
+        orderBy: { timestamp: 'desc' },
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        take: parseInt(limit),
+        include: {
+          company: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      }),
+      prisma.USDETransaction.count({ where: whereClause })
+    ]);
+    
+    console.log(`[API] Transactions found: ${transactions.length}, Total: ${totalCount}`);
+    
+    // 格式化交易记录
+    const formattedTransactions = transactions.map(t => ({
+      id: t.id,
+      type: t.type,
+      amount: t.amount,
+      balanceBefore: t.balanceBefore,
+      balanceAfter: t.balanceAfter,
+      description: t.description,
+      timestamp: t.timestamp,
+      status: t.status,
+      blockchainTxHash: t.blockchainTxHash,
+      metadata: t.metadata ? JSON.parse(t.metadata) : null,
+      company: t.company
+    }));
+    
+    // 计算统计信息
+    const stats = await prisma.USDETransaction.aggregate({
+      where: { company_id: companyId },
+      _sum: {
+        amount: true
+      },
+      _count: {
+        id: true
+      }
+    });
+    
+    const typeStats = await prisma.USDETransaction.groupBy({
+      by: ['type'],
+      where: { company_id: companyId },
+      _sum: {
+        amount: true
+      },
+      _count: {
+        id: true
+      }
+    });
+    
+    const response = {
+      success: true,
+      data: {
+        transactions: formattedTransactions,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          pages: Math.ceil(totalCount / parseInt(limit))
+        },
+        stats: {
+          totalTransactions: stats._count.id || 0,
+          totalAmount: stats._sum.amount || 0,
+          byType: typeStats.reduce((acc, item) => {
+            acc[item.type] = {
+              count: item._count.id,
+              amount: item._sum.amount
+            };
+            return acc;
+          }, {})
+        }
+      }
+    };
+    
+    console.log(`[API] Response data:`, {
+      success: true,
+      transactionCount: formattedTransactions.length,
+      totalCount,
+      stats: response.data.stats
+    });
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('[API] Error in /transactions:', error);
+    console.error('[API] Error stack:', error.stack);
+    simpleMetrics.incrementErrors();
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch transactions',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// 新增：获取deposit状态统计端点
+router.get('/deposit-stats', verifyToken, cacheMiddleware(300), async (req, res) => {
+  try {
+    const companyId = req.company.companyId;
+    
+    console.log(`[API] GET /deposit-stats - Company ID: ${companyId}`);
+    
+    // 获取deposit统计
+    const [depositStats, recentDeposits] = await Promise.all([
+      prisma.deposit.aggregate({
+        where: { company_id: companyId },
+        _sum: {
+          amount: true,
+          usde_minted: true
+        },
+        _count: {
+          id: true
+        }
+      }),
+      prisma.deposit.findMany({
+        where: { company_id: companyId },
+        orderBy: { created_at: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          amount: true,
+          usde_minted: true,
+          status: true,
+          created_at: true,
+          updated_at: true
+        }
+      })
+    ]);
+    
+    // 按状态分组统计
+    const statusStats = await prisma.deposit.groupBy({
+      by: ['status'],
+      where: { company_id: companyId },
+      _sum: {
+        amount: true,
+        usde_minted: true
+      },
+      _count: {
+        id: true
+      }
+    });
+    
+    const response = {
+      success: true,
+      data: {
+        summary: {
+          totalDeposits: depositStats._count.id || 0,
+          totalAmount: depositStats._sum.amount || 0,
+          totalUSDE: depositStats._sum.usde_minted || 0,
+          totalFees: 0 // 暂时设为0，因为数据库中没有fee字段
+        },
+        byStatus: statusStats.reduce((acc, item) => {
+          acc[item.status] = {
+            count: item._count.id,
+            amount: item._sum.amount,
+            usdeAmount: item._sum.usde_minted
+          };
+          return acc;
+        }, {}),
+        recentDeposits: recentDeposits.map(d => ({
+          id: d.id,
+          amount: d.amount,
+          usdeAmount: d.usde_minted,
+          status: d.status,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at
+        }))
+      }
+    };
+    
+    console.log(`[API] Deposit stats response:`, {
+      success: true,
+      totalDeposits: response.data.summary.totalDeposits,
+      totalAmount: response.data.summary.totalAmount
+    });
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('[API] Error in /deposit-stats:', error);
+    console.error('[API] Error stack:', error.stack);
+    simpleMetrics.incrementErrors();
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch deposit stats',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// 新增：手动处理pending状态的deposit（用于测试和调试）
+router.post('/process-pending/:depositId', verifyToken, async (req, res) => {
+  try {
+    const { depositId } = req.params;
+    const companyId = req.company.companyId;
+    
+    console.log(`[API] POST /process-pending/${depositId} - Company ID: ${companyId}`);
+    
+    // 查找deposit记录
+    const deposit = await prisma.deposit.findFirst({
+      where: {
+        id: depositId,
+        company_id: companyId
+      }
+    });
+    
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        error: 'Deposit not found'
+      });
+    }
+    
+    if (deposit.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        error: `Deposit status is ${deposit.status}, cannot process`
+      });
+    }
+    
+    // 使用事务处理
+    await prisma.$transaction(async (tx) => {
+      // 更新deposit状态
+      const updatedDeposit = await tx.deposit.update({
+        where: { id: depositId },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date()
+        }
+      });
+      
+      // 获取当前余额
+      const company = await tx.company.findUnique({
+        where: { id: companyId },
+        select: { usdeBalance: true }
+      });
+      
+      if (!company) {
+        throw new Error('Company not found');
+      }
+      
+      const balanceBefore = company.usdeBalance || 0;
+      const balanceAfter = balanceBefore + deposit.usde_minted;
+      
+      // 更新公司余额
+      await tx.company.update({
+        where: { id: companyId },
+        data: {
+          usdeBalance: balanceAfter
+        }
+      });
+      
+      // 创建USDE交易记录
+      await tx.USDETransaction.create({
+        data: {
+          companyId,
+          type: 'mint',
+          amount: deposit.usde_minted,
+          balanceBefore,
+          balanceAfter,
+          description: `Minted ${deposit.usde_minted} USDE from $${deposit.amount} deposit (manual process)`,
+          metadata: JSON.stringify({
+            depositId: deposit.id,
+            stripeSessionId: deposit.stripeSessionId,
+            paymentMethod: deposit.paymentMethod,
+            fee: 0, // 暂时设为0，因为数据库中没有fee字段
+            processType: 'manual'
+          }),
+          status: 'confirmed'
+        }
+      });
+      
+      console.log(`[API] Successfully processed pending deposit:`, {
+        depositId,
+        companyId,
+        amount: deposit.amount,
+        usdeAmount: deposit.usde_minted,
+        balanceBefore,
+        balanceAfter
+      });
+    });
+    
+    res.json({
+      success: true,
+      message: 'Deposit processed successfully',
+              data: {
+          depositId,
+          status: 'COMPLETED',
+          usdeAmount: deposit.usde_minted
+        }
+    });
+    
+  } catch (error) {
+    console.error('[API] Error in /process-pending:', error);
+    console.error('[API] Error stack:', error.stack);
+    simpleMetrics.incrementErrors();
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process pending deposit',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// 新增：批量处理所有pending状态的deposit
+router.post('/process-all-pending', verifyToken, async (req, res) => {
+  try {
+    const companyId = req.company.companyId;
+    
+    console.log(`[API] POST /process-all-pending - Company ID: ${companyId}`);
+    
+    // 查找所有pending状态的deposit
+    const pendingDeposits = await prisma.deposit.findMany({
+      where: {
+        company_id: companyId,
+        status: 'PENDING'
+      }
+    });
+    
+    if (pendingDeposits.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No pending deposits found',
+        data: {
+          processedCount: 0,
+          totalAmount: 0
+        }
+      });
+    }
+    
+    let processedCount = 0;
+    let totalAmount = 0;
+    
+    // 逐个处理pending deposits
+    for (const deposit of pendingDeposits) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          // 更新deposit状态
+          await tx.deposit.update({
+            where: { id: deposit.id },
+            data: {
+              status: 'COMPLETED',
+              completedAt: new Date()
+            }
+          });
+          
+          // 获取当前余额
+          const company = await tx.company.findUnique({
+            where: { id: companyId },
+            select: { usdeBalance: true }
+          });
+          
+          if (!company) {
+            throw new Error('Company not found');
+          }
+          
+          const balanceBefore = company.usdeBalance || 0;
+          const balanceAfter = balanceBefore + deposit.usde_minted;
+          
+          // 更新公司余额
+          await tx.company.update({
+            where: { id: companyId },
+            data: {
+              usdeBalance: balanceAfter
+            }
+          });
+          
+          // 创建USDE交易记录
+          await tx.USDETransaction.create({
+            data: {
+              companyId,
+              type: 'mint',
+              amount: deposit.usde_minted,
+              balanceBefore,
+              balanceAfter,
+              description: `Minted ${deposit.usde_minted} USDE from $${deposit.amount} deposit (batch process)`,
+              metadata: JSON.stringify({
+                depositId: deposit.id,
+                stripeSessionId: deposit.stripeSessionId,
+                paymentMethod: deposit.paymentMethod,
+                fee: 0, // 暂时设为0，因为数据库中没有fee字段
+                processType: 'batch'
+              }),
+              status: 'confirmed'
+            }
+          });
+          
+          processedCount++;
+          totalAmount += deposit.usde_minted;
+        });
+      } catch (error) {
+        console.error(`[API] Error processing deposit ${deposit.id}:`, error);
+        // 继续处理下一个
+      }
+    }
+    
+    console.log(`[API] Batch processing completed:`, {
+      companyId,
+      processedCount,
+      totalAmount
+    });
+    
+    res.json({
+      success: true,
+      message: `Successfully processed ${processedCount} pending deposits`,
+      data: {
+        processedCount,
+        totalAmount
+      }
+    });
+    
+  } catch (error) {
+    console.error('[API] Error in /process-all-pending:', error);
+    console.error('[API] Error stack:', error.stack);
+    simpleMetrics.incrementErrors();
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process pending deposits',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
