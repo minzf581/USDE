@@ -36,7 +36,7 @@ model Role {
 
 model Permission {
   id          String   @id @default(cuid())
-  name        String   @unique // view_balance, initiate_payment, approve_payment, view_reports, etc.
+  name        String   @unique // view_balance, initiate_payment, approve_payment, view_reports, view_approvals, etc.
   description String?
   roles       Role[]
   createdAt   DateTime @default(now())
@@ -117,13 +117,28 @@ model Company {
   kycStatus   String   @default("pending")
   balance     Float    @default(0)
   usdeBalance Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  
+  // 新增字段
+  parentCompanyId String? // 父公司ID
+  companyType     String? // 公司类型 (enterprise, subsidiary, standalone)
+  isEnterprise   Boolean  @default(false) // 是否为企业
+  isEnterpriseAdmin Boolean @default(false) // 是否为企业管理员
+  companyCode    String? // 公司代码
+  companyAddress String? // 公司地址
+  ucBalance      Float   @default(0) // UC余额
+  totalEarnings  Float   @default(0) // 总收益
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   // Enterprise relations
   enterpriseAdmin Enterprise[] @relation("EnterpriseAdmin")
   enterpriseUsers Enterprise[] @relation("EnterpriseUsers")
   enterpriseUserRoles UserRole[] @relation("CompanyUserRoles")
+  
+  // 新增关系
+  parentCompany Company? @relation("ParentChild", fields: [parentCompanyId], references: [id])
+  subsidiaries Company[] @relation("ParentChild")
   
   // Treasury relations
   treasurySettings TreasurySettings?
@@ -139,6 +154,7 @@ model Company {
   withdrawals Withdrawal[]
   kycRequests KYC[]
   bankAccounts BankAccount[]
+  usdeTransactions USDETransaction[]
   
   // Approval relations
   approvals Approval[]
@@ -243,6 +259,29 @@ model BankAccount {
   status      String  @default("active")
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+  
+  // Relations
+  company Company @relation(fields: [company_id], references: [id])
+}
+
+// USDE Transaction models
+model USDETransaction {
+  id              String   @id @default(cuid())
+  company_id      String
+  type            String   // mint, burn, transfer, etc.
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("completed")
+  reference_id    String?
+  reference_type  String?
+  balanceBefore   Float?
+  balanceAfter    Float?
+  description     String?
+  blockchainTxHash String?
+  metadata        String?
+  timestamp       DateTime @default(now())
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
   
   // Relations
   company Company @relation(fields: [company_id], references: [id])

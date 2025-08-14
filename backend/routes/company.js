@@ -333,14 +333,14 @@ router.get('/:parentCompanyId/subsidiaries', verifyToken, async (req, res) => {
     const subsidiaries = await prisma.company.findMany({
       where: {
         parentCompanyId,
-        companyType: 'subsidiary'
+        type: 'subsidiary'
       },
       select: {
         id: true,
         name: true,
         companyCode: true,
         companyAddress: true,
-        ucBalance: true,
+        balance: true,
         usdeBalance: true,
         totalEarnings: true,
         kycStatus: true,
@@ -355,7 +355,7 @@ router.get('/:parentCompanyId/subsidiaries', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Get subsidiaries error:', error);
-    res.status(500).json({ error: 'Failed to get subsidiaries' });
+    res.status(500).json({ error: 'Failed to fetch subsidiaries' });
   }
 });
 
@@ -383,7 +383,7 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
     const subsidiariesBalance = await prisma.company.aggregate({
       where: {
         parentCompanyId,
-        companyType: 'subsidiary'
+        type: 'subsidiary'
       },
       _sum: {
         balance: true,
@@ -404,7 +404,7 @@ router.get('/:parentCompanyId/consolidated-balance', verifyToken, async (req, re
         count: await prisma.company.count({
           where: {
             parentCompanyId,
-            companyType: 'subsidiary'
+            type: 'subsidiary'
           }
         })
       },

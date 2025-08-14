@@ -115,11 +115,18 @@ async function initUsersOnStartup() {
     ];
     
     for (const role of roles) {
-      await prisma.role.upsert({
-        where: { id: role.id },
-        update: {},
-        create: role
-      });
+      try {
+        await prisma.role.create({
+          data: role
+        });
+        console.log(`✅ 创建角色: ${role.name}`);
+      } catch (error) {
+        if (error.code === 'P2002') {
+          console.log(`ℹ️  角色已存在: ${role.name}`);
+        } else {
+          console.error(`❌ 创建角色失败 ${role.name}:`, error.message);
+        }
+      }
     }
     console.log('✅ 基础角色检查完成');
     

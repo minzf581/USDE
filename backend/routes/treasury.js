@@ -14,7 +14,7 @@ const requirePermission = (permission) => {
       });
 
       // 系统管理员和企业管理员拥有所有权限
-      if (user.role === 'admin' || user.isEnterpriseAdmin) {
+      if (user.role === 'admin' || user.role === 'ENTERPRISE_ADMIN') {
         return next();
       }
 

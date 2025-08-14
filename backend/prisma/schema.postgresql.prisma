@@ -139,6 +139,7 @@ model Company {
   withdrawals Withdrawal[]
   kycRequests KYC[]
   bankAccounts BankAccount[]
+  usdeTransactions USDETransaction[]
   
   // Approval relations
   approvals Approval[]
@@ -243,6 +244,29 @@ model BankAccount {
   status      String  @default("active")
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+  
+  // Relations
+  company Company @relation(fields: [company_id], references: [id])
+}
+
+// USDE Transaction models
+model USDETransaction {
+  id              String   @id @default(cuid())
+  company_id      String
+  type            String   // mint, burn, transfer, etc.
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("completed")
+  reference_id    String?
+  reference_type  String?
+  balanceBefore   Float?
+  balanceAfter    Float?
+  description     String?
+  blockchainTxHash String?
+  metadata        String?
+  timestamp       DateTime @default(now())
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
   
   // Relations
   company Company @relation(fields: [company_id], references: [id])

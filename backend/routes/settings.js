@@ -15,7 +15,7 @@ router.get('/', verifyToken, async (req, res) => {
     });
 
     // 只有系统管理员和企业管理员可以访问设置
-    if (user.role !== 'admin' && !user.isEnterpriseAdmin) {
+    if (user.role !== 'admin' && user.role !== 'enterprise_admin' && user.role !== 'ENTERPRISE_ADMIN') {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
